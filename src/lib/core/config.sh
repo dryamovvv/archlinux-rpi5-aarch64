@@ -78,6 +78,7 @@ config::validate() {
         "$BUILD_USER_PASSWORD"
         "$BUILD_SSH_USER"
         "$BUILD_ROOT_PASSWORD"
+        "$BUILD_HOSTNAME"
         "$BUILD_TIMEZONE"
         "$BUILD_MKINITCPIO_HOOKS"
     )

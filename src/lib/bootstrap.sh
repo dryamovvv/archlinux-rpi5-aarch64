@@ -29,6 +29,7 @@ bootstrap::install_base() {
             "raspberrypi-bootloader"
             "raspberrypi-utils"
             "firmware-raspberrypi"
+            "linux-firmware"
             "wireless-regdb"
             "sudo"
             "openssh"
@@ -76,18 +77,6 @@ bootstrap::fix_vconsole() {
     fi
 }
 
-bootstrap::fix_locale_conf() {
-    local target="$1"
-    log::assert_not_empty "$target" "точка монтирования"
-
-    mkdir -p "$target/etc"
-    if echo "LC_ALL=en_US.UTF-8" >"$target/etc/locale.conf" && echo "LANG=en_US.UTF-8" >>"$target/etc/locale.conf"; then
-        log::success "Файл $target/etc/locale.conf"
-    else
-        log::die "Ошибка при обновлении $target/etc/locale.conf"
-    fi
-}
-
 bootstrap::locale_gen_file() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
@@ -115,10 +104,12 @@ bootstrap::systemd_firstboot() {
     local target="$1"
     local timezone="$2"
     local root_password="$3"
+    local hostname="$4"
 
     log::assert_not_empty "$target" "точка монтирования"
     log::assert_not_empty "$timezone" "часовой пояс"
     log::assert_not_empty "$root_password" "пароль root"
+    log::assert_not_empty "$hostname" "hostname"
 
     log::info "Применяем systemd-firstboot..."
     systemd-firstboot \
@@ -127,7 +118,10 @@ bootstrap::systemd_firstboot() {
         --locale=en_US.UTF-8 \
         --keymap=us \
         --timezone="$timezone" \
-        --root-password="$root_password"
+        --hostname="$hostname" \
+        --root-password="$root_password" \
+        --root-shell=/bin/bash \
+        --setup-machine-id
 }
 
 bootstrap::firstboot_service() {
@@ -204,6 +198,15 @@ bootstrap::mkinitcpio_conf() {
     sed -i "s/^HOOKS=(.*/$new_hooks/" "$target/etc/mkinitcpio.conf"
     sed -i 's/^COMPRESSION="zstd"/#COMPRESSION="zstd"/' "$target/etc/mkinitcpio.conf"
     log::info "Обновлен $target/etc/mkinitcpio.conf..."
+}
+
+bootstrap::regenerate_initramfs() {
+    local target="$1"
+    log::assert_not_empty "$target" "точка монтирования"
+
+    log::info "Регенерируем initramfs в chroot..."
+    arch-chroot "$target" mkinitcpio -P 2>&1 || log::warn "initramfs regeneration encountered issues"
+    log::success "initramfs обновлён"
 }
 
 bootstrap::network() {

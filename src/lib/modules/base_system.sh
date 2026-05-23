@@ -16,5 +16,7 @@ base_system::prepare_config() {
 
 base_system::install() {
     bootstrap::install_base "$BUILD_MOUNT_ROOT"
+    bootstrap::mkinitcpio_conf "$BUILD_MOUNT_ROOT" "$BUILD_MKINITCPIO_HOOKS"
+    bootstrap::regenerate_initramfs "$BUILD_MOUNT_ROOT"
     bootstrap::generate_fstab "$BUILD_MOUNT_ROOT"
 }

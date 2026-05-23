@@ -30,6 +30,7 @@ deps::validate_build_commands() {
         mkfs.ext4 \
         mkfs.vfat \
         mount \
+        arch-chroot \
         pacstrap \
         partprobe \
         partx \
