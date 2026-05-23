@@ -8,7 +8,7 @@ Raspberry Pi 5 Arch Linux image build script.
 - `src/lib/` — низкоуровневые Bash-модули (`disk.sh`, `bootstrap.sh`, `log.sh`).
 - `scripts/package.sh` — собирает один исполняемый файл в `dist/bin/` и создает `dist/images/`.
 - `dist/bin/rpi5-archlinux-image` — generated packaged CLI для запуска сборки образа.
-- `dist/images/` — generated каталог для `arch_root.img`, `arch_root.img.xz` и checksum; каталог `dist/` не коммитится.
+- `dist/images/` — generated каталог для локального `archlinuxarm-rpi5-aarch64.img` и release artifacts вида `archlinuxarm-rpi5-aarch64-${TAG}.img.xz`; каталог `dist/` не коммитится.
 - `build.conf.example` — шаблон build-конфигурации.
 - `build.conf` — локальный ignored config; `scripts/package.sh` требует этот файл и embedded-встраивает его значения в `dist/bin/rpi5-archlinux-image` как default config.
 - `src/conf/pacman/` — active pacman-конфигурация, embedded в packaged builder и реально используемая `pacstrap`.
@@ -36,7 +36,7 @@ shellcheck scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modul
 
 ## GitHub Actions
 - `.github/workflows/ci.yml` проверяет shell-скрипты и smoke-тесты.
-- `.github/workflows/release.yml` запускается на тегах `v*`, собирает образ на native `arm64` runner и публикует `dist/images/arch_root.img.xz` вместе с `dist/images/arch_root.img.xz.sha256`.
+- `.github/workflows/release.yml` запускается на тегах `v*`, собирает образ на native `arm64` runner и публикует `archlinuxarm-rpi5-aarch64-${TAG}.img.xz` вместе с `archlinuxarm-rpi5-aarch64-${TAG}.img.xz.sha256`.
 - Локальный сценарий релиза:
 ```bash
 git tag v0.1.0

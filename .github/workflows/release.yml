@@ -41,27 +41,31 @@ jobs:
 
       - name: Validate boot partition
         run: |
-          test -f dist/images/arch_root.img
+          test -f dist/images/archlinuxarm-rpi5-aarch64.img
           tmp_boot="$(mktemp -d)"
           trap 'rm -rf "$tmp_boot"' EXIT
           for path in kernel8.img initramfs-linux.img bcm2712-rpi-5-b.dtb config.txt cmdline.txt; do
-            mcopy -i dist/images/arch_root.img@@1048576 "::/$path" "$tmp_boot/$path"
+            mcopy -i dist/images/archlinuxarm-rpi5-aarch64.img@@1048576 "::/$path" "$tmp_boot/$path"
             test -s "$tmp_boot/$path"
           done
 
       - name: Verify artifacts
         run: |
-          test -f dist/images/arch_root.img
-          xz -T0 -9 -c dist/images/arch_root.img > dist/images/arch_root.img.xz
-          test -f dist/images/arch_root.img.xz
-          sha256sum dist/images/arch_root.img.xz > dist/images/arch_root.img.xz.sha256
+          image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
+          checksum_name="${image_name}.sha256"
+          test -f dist/images/archlinuxarm-rpi5-aarch64.img
+          xz -T0 -9 -c dist/images/archlinuxarm-rpi5-aarch64.img > "dist/images/${image_name}"
+          test -f "dist/images/${image_name}"
+          sha256sum "dist/images/${image_name}" > "dist/images/${checksum_name}"
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
+          checksum_name="${image_name}.sha256"
           gh release create "$GITHUB_REF_NAME" \
-            dist/images/arch_root.img.xz \
-            dist/images/arch_root.img.xz.sha256 \
+            "dist/images/${image_name}" \
+            "dist/images/${checksum_name}" \
             --generate-notes \
             --title "$GITHUB_REF_NAME"

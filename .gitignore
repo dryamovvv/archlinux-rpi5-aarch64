@@ -1,5 +1,5 @@
 build.conf
-arch_root.img
-arch_root.img.xz
-arch_root.img.xz.sha256
+archlinuxarm-rpi5-aarch64.img
+archlinuxarm-rpi5-aarch64-*.img.xz
+archlinuxarm-rpi5-aarch64-*.img.xz.sha256
 dist/

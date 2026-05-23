@@ -20,7 +20,7 @@ fail() {
 
 set_valid_config() {
     BUILD_PACMAN_CONF="$repo_root/src/conf/pacman/pacman-arm.conf"
-    BUILD_IMAGE_PATH="$repo_root/dist/images/arch_root.img"
+    BUILD_IMAGE_PATH="$repo_root/dist/images/archlinuxarm-rpi5-aarch64.img"
     BUILD_IMAGE_SIZE="4g"
     BUILD_MOUNT_ROOT="/mnt/arch_build"
     BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"

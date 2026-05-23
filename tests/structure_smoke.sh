@@ -34,12 +34,14 @@ grep -q '^build\.conf$' "$repo_root/.gitignore" || fail ".gitignore must exclude
 grep -q 'Complete first boot provisioning' "$repo_root/src/conf/systemd/rpi5-firstboot.service" ||
     fail "firstboot service asset must be non-empty and active"
 [[ -f "$repo_root/.gitignore" ]] || fail "missing .gitignore"
-grep -q '^arch_root\.img$' "$repo_root/.gitignore" || fail ".gitignore must exclude raw image artifacts"
-grep -q '^arch_root\.img\.xz$' "$repo_root/.gitignore" || fail ".gitignore must exclude compressed image artifacts"
-grep -q '^arch_root\.img\.xz\.sha256$' "$repo_root/.gitignore" || fail ".gitignore must exclude release checksum artifacts"
+grep -q '^archlinuxarm-rpi5-aarch64\.img$' "$repo_root/.gitignore" || fail ".gitignore must exclude raw image artifacts"
+grep -q '^archlinuxarm-rpi5-aarch64-.*\.img\.xz$' "$repo_root/.gitignore" || fail ".gitignore must exclude compressed release image artifacts"
+grep -q '^archlinuxarm-rpi5-aarch64-.*\.img\.xz\.sha256$' "$repo_root/.gitignore" || fail ".gitignore must exclude release checksum artifacts"
 grep -q '^dist/$' "$repo_root/.gitignore" || fail ".gitignore must exclude packaged dist artifacts"
 
 grep -q './dist/bin/rpi5-archlinux-image' "$repo_root/README.md" || fail "README must reference ./dist/bin/rpi5-archlinux-image"
+grep -Fq 'archlinuxarm-rpi5-aarch64.img' "$repo_root/README.md" || fail "README must document canonical local image name"
+grep -Fq "archlinuxarm-rpi5-aarch64-\${TAG}.img.xz" "$repo_root/README.md" || fail "README must document tagged release image name"
 grep -q 'list-steps' "$repo_root/README.md" || fail "README must mention list-steps"
 grep -q 'src/conf/boot/' "$repo_root/README.md" || fail "README must mention boot configs"
 grep -q 'embedded' "$repo_root/README.md" || fail "README must mention packaged embedded configs"
