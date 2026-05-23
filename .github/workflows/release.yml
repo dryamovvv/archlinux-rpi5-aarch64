@@ -32,7 +32,7 @@ jobs:
       - name: Verify artifacts
         run: |
           test -f arch_root.img
-          xz -T0 -9 arch_root.img
+          xz -T0 -9 -c arch_root.img > arch_root.img.xz
           test -f arch_root.img.xz
           sha256sum arch_root.img.xz > arch_root.img.xz.sha256
 
