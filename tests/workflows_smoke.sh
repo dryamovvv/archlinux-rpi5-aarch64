@@ -62,5 +62,9 @@ grep -q 'systemd_firstboot' "$repo_root/src/lib/modules/services.sh" \
     || fail "main script must use systemd-firstboot"
 grep -Fq "archlinuxarm-rpi5-aarch64-\${GITHUB_REF_NAME}.img.xz" "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must publish tagged compressed image"
+grep -Fq "archlinuxarm-qemu-aarch64-\${GITHUB_REF_NAME}.img.xz" "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must publish tagged compressed QEMU image"
 grep -q 'dist/images/archlinuxarm-rpi5-aarch64.img' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must read the image from dist/images"
+grep -q './dist/bin/rpi5-archlinux-image build-qemu' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must build the QEMU image"

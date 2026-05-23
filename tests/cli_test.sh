@@ -38,6 +38,8 @@ cp "$config_example" "$config_file"
 help_output="$("$builder" help)"
 [[ "$help_output" == *"Usage:"* ]] || fail "help must print usage"
 [[ "$help_output" == *"build"* ]] || fail "help must mention build command"
+[[ "$help_output" == *"build-qemu"* ]] || fail "help must mention build-qemu command"
+[[ "$help_output" == *"qemu-run"* ]] || fail "help must mention qemu-run command"
 [[ "$help_output" == *"list-steps"* ]] || fail "help must mention list-steps command"
 
 if "$builder" >/tmp/rpi5-cli-no-args.out 2>&1; then
@@ -68,6 +70,16 @@ rm -f "$custom_config"
 dry_run_output="$("$builder" --dry-run build)"
 [[ "$dry_run_output" == *$'prepare_image\tdisk_image::prepare'* ]] ||
     fail "dry-run build must print selected step functions"
+
+qemu_dry_run_output="$("$builder" --dry-run build-qemu)"
+[[ "$qemu_dry_run_output" == *$'export_qemu_boot\tqemu_boot_config::export_boot_artifacts'* ]] ||
+    fail "dry-run build-qemu must include qemu boot export step"
+[[ "$qemu_dry_run_output" != *$'configure_boot\tboot_config::configure'* ]] ||
+    fail "dry-run build-qemu must not use Raspberry Pi boot configuration"
+
+qemu_run_dry_output="$("$builder" --dry-run qemu-run)"
+[[ "$qemu_run_dry_output" == *"qemu-system-aarch64"* ]] ||
+    fail "dry-run qemu-run must print qemu-system-aarch64 command"
 
 only_output="$("$builder" --dry-run --only install_base build)"
 [[ "$only_output" == $'install_base\tbase_system::install' ]] ||

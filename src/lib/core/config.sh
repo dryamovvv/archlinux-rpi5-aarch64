@@ -28,6 +28,43 @@ config::load_default() {
     config::load "$config_path"
 }
 
+config::select_qemu() {
+    BUILD_IMAGE_PATH="${BUILD_QEMU_IMAGE_PATH:-$BUILD_PROJECT_ROOT/dist/images/archlinuxarm-qemu-aarch64.img}"
+    BUILD_MOUNT_ROOT="${BUILD_QEMU_MOUNT_ROOT:-/mnt/arch_qemu_build}"
+    BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"
+    BUILD_MKINITCPIO_HOOKS="${BUILD_QEMU_MKINITCPIO_HOOKS:-$BUILD_MKINITCPIO_HOOKS}"
+    BUILD_QEMU_BOOT_DIR="${BUILD_QEMU_BOOT_DIR:-$BUILD_PROJECT_ROOT/dist/images/qemu-boot}"
+    BUILD_QEMU_CPU="${BUILD_QEMU_CPU:-cortex-a72}"
+    BUILD_QEMU_SMP="${BUILD_QEMU_SMP:-4}"
+    BUILD_QEMU_MEMORY="${BUILD_QEMU_MEMORY:-2048}"
+    BUILD_QEMU_SSH_HOST_PORT="${BUILD_QEMU_SSH_HOST_PORT:-2222}"
+    BUILD_QEMU_KERNEL_CMDLINE="${BUILD_QEMU_KERNEL_CMDLINE:-root=/dev/vda2 rw rootwait console=ttyAMA0}"
+
+    if declare -p BUILD_QEMU_MODULES >/dev/null 2>&1; then
+        BUILD_MODULES=("${BUILD_QEMU_MODULES[@]}")
+    else
+        BUILD_MODULES=(
+            "disk_image"
+            "base_system"
+            "qemu_boot_config"
+            "services"
+        )
+    fi
+
+    if declare -p BUILD_QEMU_PACKAGES >/dev/null 2>&1; then
+        BUILD_PACKAGES=("${BUILD_QEMU_PACKAGES[@]}")
+    else
+        BUILD_PACKAGES=(
+            "base"
+            "archlinuxarm-keyring"
+            "pacman-mirrorlist"
+            "linux-aarch64"
+            "sudo"
+            "openssh"
+        )
+    fi
+}
+
 config::validate() {
     local required_values=(
         "$BUILD_IMAGE_PATH"

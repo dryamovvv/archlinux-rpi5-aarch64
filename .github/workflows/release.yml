@@ -29,6 +29,7 @@ jobs:
             udev \
             util-linux \
             mtools \
+            qemu-system-arm \
             xz-utils
 
       - name: Package builder
@@ -38,6 +39,9 @@ jobs:
 
       - name: Build Arch Linux image
         run: ./dist/bin/rpi5-archlinux-image build
+
+      - name: Build QEMU image
+        run: ./dist/bin/rpi5-archlinux-image build-qemu
 
       - name: Validate boot partition
         run: |
@@ -49,14 +53,32 @@ jobs:
             test -s "$tmp_boot/$path"
           done
 
+      - name: Verify QEMU boot starts
+        run: |
+          set +e
+          timeout 60 ./dist/bin/rpi5-archlinux-image qemu-run > qemu-boot.log 2>&1
+          rc="$?"
+          set -e
+          if [[ "$rc" -ne 0 && "$rc" -ne 124 ]]; then
+            cat qemu-boot.log
+            exit "$rc"
+          fi
+          grep -E 'Linux version|Booting Linux|Run /init|Starting systemd|Welcome to Arch Linux' qemu-boot.log
+
       - name: Verify artifacts
         run: |
           image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
           checksum_name="${image_name}.sha256"
+          qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
+          qemu_checksum_name="${qemu_image_name}.sha256"
           test -f dist/images/archlinuxarm-rpi5-aarch64.img
+          test -f dist/images/archlinuxarm-qemu-aarch64.img
           xz -T0 -9 -c dist/images/archlinuxarm-rpi5-aarch64.img > "dist/images/${image_name}"
+          xz -T0 -9 -c dist/images/archlinuxarm-qemu-aarch64.img > "dist/images/${qemu_image_name}"
           test -f "dist/images/${image_name}"
+          test -f "dist/images/${qemu_image_name}"
           sha256sum "dist/images/${image_name}" > "dist/images/${checksum_name}"
+          sha256sum "dist/images/${qemu_image_name}" > "dist/images/${qemu_checksum_name}"
 
       - name: Publish GitHub release
         env:
@@ -64,8 +86,12 @@ jobs:
         run: |
           image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
           checksum_name="${image_name}.sha256"
+          qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
+          qemu_checksum_name="${qemu_image_name}.sha256"
           gh release create "$GITHUB_REF_NAME" \
             "dist/images/${image_name}" \
             "dist/images/${checksum_name}" \
+            "dist/images/${qemu_image_name}" \
+            "dist/images/${qemu_checksum_name}" \
             --generate-notes \
             --title "$GITHUB_REF_NAME"

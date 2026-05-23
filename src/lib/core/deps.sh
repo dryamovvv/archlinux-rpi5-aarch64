@@ -35,3 +35,7 @@ deps::validate_build_commands() {
         udevadm \
         umount
 }
+
+deps::validate_qemu_commands() {
+    deps::require_commands qemu-system-aarch64
+}

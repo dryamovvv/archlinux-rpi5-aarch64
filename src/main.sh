@@ -34,6 +34,8 @@ source "$BUILD_LIB_DIR/disk.sh"
 # shellcheck disable=SC1091
 source "$BUILD_LIB_DIR/bootstrap.sh"
 # shellcheck disable=SC1091
+source "$BUILD_LIB_DIR/qemu.sh"
+# shellcheck disable=SC1091
 source "$BUILD_CORE_DIR/config.sh"
 # shellcheck disable=SC1091
 source "$BUILD_CORE_DIR/deps.sh"
@@ -54,6 +56,8 @@ main::usage() {
     cat <<'EOF'
 Usage:
   rpi5-archlinux-image [options] build
+  rpi5-archlinux-image [options] build-qemu
+  rpi5-archlinux-image [options] qemu-run
   rpi5-archlinux-image [options] list-steps
   rpi5-archlinux-image [options] validate
   rpi5-archlinux-image [options] clean
@@ -98,7 +102,7 @@ main::parse_args() {
                 MAIN_COMMAND="help"
                 shift
                 ;;
-            help|build|list-steps|validate|clean)
+            help|build|build-qemu|qemu-run|list-steps|validate|clean)
                 [[ -z "$MAIN_COMMAND" ]] || log::die "Only one command can be specified"
                 MAIN_COMMAND="$1"
                 shift
@@ -116,11 +120,16 @@ main::parse_args() {
 }
 
 main::load_build_context() {
+    local build_target="${1:-rpi5}"
+
     steps::reset
     if ((MAIN_CONFIG_EXPLICIT)); then
         config::load "$MAIN_CONFIG_PATH"
     else
         config::load_default "$MAIN_CONFIG_PATH"
+    fi
+    if [[ "$build_target" == "qemu" ]]; then
+        config::select_qemu
     fi
     config::validate
     modules::load
@@ -165,6 +174,14 @@ main() {
         build)
             main::load_build_context
             main::build "$@"
+            ;;
+        build-qemu)
+            main::load_build_context qemu
+            main::build "$@"
+            ;;
+        qemu-run)
+            main::load_build_context qemu
+            qemu::run
             ;;
         list-steps)
             main::load_build_context
