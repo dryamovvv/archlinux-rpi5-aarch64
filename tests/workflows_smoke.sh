@@ -25,8 +25,25 @@ grep -q 'runs-on: ubuntu-24.04-arm' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must use the native arm64 runner"
 grep -q 'sudo apt-get install -y' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must install build dependencies on the runner"
-grep -q 'sudo ./scripts/main.sh build' "$repo_root/.github/workflows/release.yml" \
-    || fail "release workflow must run the build script directly on the runner"
+grep -q 'Package builder' "$repo_root/.github/workflows/ci.yml" \
+    || fail "ci workflow must package the builder"
+grep -q 'Package builder' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must package the builder before build"
+grep -q './scripts/package.sh' "$repo_root/.github/workflows/ci.yml" \
+    || fail "ci workflow must run scripts/package.sh"
+grep -q './scripts/package.sh' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must run scripts/package.sh"
+grep -q 'cp build.conf.example build.conf' "$repo_root/.github/workflows/ci.yml" \
+    || fail "ci workflow must create build.conf from example before package"
+grep -q 'cp build.conf.example build.conf' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must create build.conf from example before package"
+grep -q 'Validate packaged builder' "$repo_root/.github/workflows/ci.yml" \
+    || fail "ci workflow must validate the packaged builder"
+grep -q './dist/bin/rpi5-archlinux-image build' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must run the packaged builder directly on the runner"
+if grep -q 'sudo ./dist/bin/rpi5-archlinux-image build' "$repo_root/.github/workflows/release.yml"; then
+    fail "release workflow must rely on builder auto-sudo instead of explicit sudo"
+fi
 grep -q 'mtools' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must install mtools for boot partition validation"
 grep -q 'Validate boot partition' "$repo_root/.github/workflows/release.yml" \
@@ -41,7 +58,9 @@ fi
 if grep -q 'tonistiigi/binfmt' "$repo_root/.github/workflows/release.yml"; then
     fail "release workflow must not register binfmt on a native arm64 runner"
 fi
-grep -q 'systemd_firstboot' "$repo_root/lib/modules/services.sh" \
+grep -q 'systemd_firstboot' "$repo_root/src/lib/modules/services.sh" \
     || fail "main script must use systemd-firstboot"
 grep -q 'arch_root.img.xz' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must publish compressed image"
+grep -q 'dist/images/arch_root.img' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must read the image from dist/images"

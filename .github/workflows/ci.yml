@@ -26,10 +26,22 @@ jobs:
             util-linux
 
       - name: Validate shell syntax
-        run: bash -n scripts/*.sh lib/*.sh lib/core/*.sh lib/modules/*.sh tests/*.sh
+        run: bash -n scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modules/*.sh tests/*.sh
 
       - name: Run ShellCheck
-        run: shellcheck -x scripts/*.sh lib/*.sh lib/core/*.sh lib/modules/*.sh tests/*.sh
+        run: shellcheck -x scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modules/*.sh tests/*.sh
+
+      - name: Package builder
+        run: |
+          cp build.conf.example build.conf
+          ./scripts/package.sh
+
+      - name: Validate packaged builder
+        run: |
+          test -x dist/bin/rpi5-archlinux-image
+          test -d dist/images
+          bash -n dist/bin/rpi5-archlinux-image
+          shellcheck -x dist/bin/rpi5-archlinux-image
 
       - name: Validate workflow YAML
         run: |
@@ -52,4 +64,4 @@ jobs:
           bash tests/boot_validation_test.sh
           bash tests/config_validation_test.sh
           bash tests/cli_test.sh
-          ./scripts/main.sh validate
+          ./dist/bin/rpi5-archlinux-image validate

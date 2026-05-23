@@ -4,8 +4,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-source "$repo_root/lib/log.sh"
-source "$repo_root/lib/core/steps.sh"
+source "$repo_root/src/lib/log.sh"
+source "$repo_root/src/lib/core/steps.sh"
 
 fail() {
     printf 'FAIL: %s\n' "$1" >&2

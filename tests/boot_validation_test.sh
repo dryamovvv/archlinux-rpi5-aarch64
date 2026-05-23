@@ -7,9 +7,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-source "$repo_root/lib/log.sh"
-source "$repo_root/lib/core/steps.sh"
-source "$repo_root/lib/modules/release_validation.sh"
+source "$repo_root/src/lib/log.sh"
+source "$repo_root/src/lib/core/steps.sh"
+source "$repo_root/src/lib/modules/release_validation.sh"
 
 log::info() { :; }
 log::success() { :; }

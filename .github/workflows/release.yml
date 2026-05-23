@@ -31,32 +31,37 @@ jobs:
             mtools \
             xz-utils
 
+      - name: Package builder
+        run: |
+          cp build.conf.example build.conf
+          ./scripts/package.sh
+
       - name: Build Arch Linux image
-        run: sudo ./scripts/main.sh build
+        run: ./dist/bin/rpi5-archlinux-image build
 
       - name: Validate boot partition
         run: |
-          test -f arch_root.img
+          test -f dist/images/arch_root.img
           tmp_boot="$(mktemp -d)"
           trap 'rm -rf "$tmp_boot"' EXIT
           for path in kernel8.img initramfs-linux.img bcm2712-rpi-5-b.dtb config.txt cmdline.txt; do
-            mcopy -i arch_root.img@@1048576 "::/$path" "$tmp_boot/$path"
+            mcopy -i dist/images/arch_root.img@@1048576 "::/$path" "$tmp_boot/$path"
             test -s "$tmp_boot/$path"
           done
 
       - name: Verify artifacts
         run: |
-          test -f arch_root.img
-          xz -T0 -9 -c arch_root.img > arch_root.img.xz
-          test -f arch_root.img.xz
-          sha256sum arch_root.img.xz > arch_root.img.xz.sha256
+          test -f dist/images/arch_root.img
+          xz -T0 -9 -c dist/images/arch_root.img > dist/images/arch_root.img.xz
+          test -f dist/images/arch_root.img.xz
+          sha256sum dist/images/arch_root.img.xz > dist/images/arch_root.img.xz.sha256
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            arch_root.img.xz \
-            arch_root.img.xz.sha256 \
+            dist/images/arch_root.img.xz \
+            dist/images/arch_root.img.xz.sha256 \
             --generate-notes \
             --title "$GITHUB_REF_NAME"

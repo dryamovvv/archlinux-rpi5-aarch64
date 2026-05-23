@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Default build configuration for scripts/main.sh.
+# Example build configuration for src/main.sh and dist/bin/rpi5-archlinux-image.
 
-BUILD_IMAGE_PATH="$BUILD_PROJECT_ROOT/arch_root.img"
+BUILD_IMAGE_PATH="$BUILD_PROJECT_ROOT/dist/images/arch_root.img"
 BUILD_IMAGE_SIZE="4g"
 BUILD_MOUNT_ROOT="/mnt/arch_build"
 BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"

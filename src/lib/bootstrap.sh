@@ -12,7 +12,7 @@ readonly _LIB_BOOTSTRAP_LOADED=1
 source "$(dirname "${BASH_SOURCE[0]}")/log.sh"
 
 bootstrap::project_root() {
-    cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd
+    cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }
 
 # Установка базовых пакетов
@@ -42,7 +42,13 @@ bootstrap::install_base() {
 
     log::info "Начало установки базовой системы (pacstrap)..."
 
-    local pacman_conf="${BUILD_PACMAN_CONF:-$(bootstrap::project_root)/conf/pacman-arm.conf}"
+    local pacman_conf=""
+
+    if [[ -n "${BUILD_PACMAN_CONF:-}" && -f "$BUILD_PACMAN_CONF" ]]; then
+        pacman_conf="$BUILD_PACMAN_CONF"
+    else
+        pacman_conf="$(assets::materialize "pacman/pacman-arm.conf")"
+    fi
 
     if pacstrap -C "$pacman_conf" -M -K "$target" "${pkgs[@]}" --noconfirm; then
         log::success "Базовая система установлена."
@@ -155,19 +161,7 @@ rm -f /etc/systemd/system/multi-user.target.wants/rpi5-firstboot.service
 EOF
     chmod 0755 "$target/usr/local/lib/rpi5-archlinux/firstboot.sh"
 
-    cat <<'EOF' >"$target/etc/systemd/system/rpi5-firstboot.service"
-[Unit]
-Description=Complete first boot provisioning
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/lib/rpi5-archlinux/firstboot.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
+    assets::write "systemd/rpi5-firstboot.service" "$target/etc/systemd/system/rpi5-firstboot.service"
 
     bootstrap::systemd_enable_unit "$target" "rpi5-firstboot.service" "multi-user.target.wants"
 }
@@ -179,9 +173,7 @@ bootstrap::cmdline_txt() {
     log::assert_not_empty "$target" "точка монтирования"
 
     log::info "Создаем $target/cmdline.txt..."
-    cat <<EOF >"$target/cmdline.txt"
-root=/dev/mmcblk0p2 rw rootwait console=tty1 fsck.repair=yes nvme.max_host_mem_size_mb=128 cgroup_enable=memory swapaccount=1
-EOF
+    assets::write "boot/cmdline.txt" "$target/cmdline.txt"
     if [[ -s "$target/cmdline.txt" ]]; then
         log::success "$target/cmdline.txt создан!"
     else
@@ -193,33 +185,7 @@ bootstrap::config_txt() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
     log::info "Создаем $target/config.txt..."
-    cat <<EOF >"$target/config.txt"
-# For more options and information see 
-# http://rptl.io/configtxt 
-# Some settings may impact device functionality. See link above for details 
-
-[pi5] 
-kernel=kernel8.img 
-auto_initramfs=1 
-initramfs initramfs-linux.img follow-kernel 
-arm_64bit=1 
-arm_boost=1 
-device_tree_address=bcm2712-rpi-5-b.dtb 
-overlay_prefix=overlays/ 
-dtparam=pciex1_gen=3 
-dtoverlay=disable-wifi 
-dtoverlay=disable-bt 
-disable_overscan=1 
-disable_fw_kms_setup=1 
-dtoverlay=vc4-kms-v3d 
-max_framebuffers=2 
-dtparam=audio=on 
-camera_auto_detect=0 
-display_auto_detect=0 
-
-[all] 
-
-EOF
+    assets::write "boot/config.txt" "$target/config.txt"
 
     if [[ -s "$target/config.txt" ]]; then
         log::success "$target/config.txt создан!"

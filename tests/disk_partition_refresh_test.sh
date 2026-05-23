@@ -7,7 +7,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-source "$repo_root/lib/disk.sh"
+source "$repo_root/src/lib/disk.sh"
 
 log::info() { :; }
 log::success() { :; }

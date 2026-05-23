@@ -4,8 +4,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-source "$repo_root/lib/log.sh"
-source "$repo_root/lib/core/config.sh"
+source "$repo_root/src/lib/log.sh"
+source "$repo_root/src/lib/core/config.sh"
 
 log::info() { :; }
 log::success() { :; }
@@ -19,8 +19,8 @@ fail() {
 }
 
 set_valid_config() {
-    BUILD_PACMAN_CONF="$repo_root/conf/pacman-arm.conf"
-    BUILD_IMAGE_PATH="$repo_root/arch_root.img"
+    BUILD_PACMAN_CONF="$repo_root/src/conf/pacman/pacman-arm.conf"
+    BUILD_IMAGE_PATH="$repo_root/dist/images/arch_root.img"
     BUILD_IMAGE_SIZE="4g"
     BUILD_MOUNT_ROOT="/mnt/arch_build"
     BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"

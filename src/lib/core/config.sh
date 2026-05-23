@@ -15,10 +15,20 @@ config::load() {
     source "$config_path"
 }
 
+config::load_default() {
+    local config_path="$1"
+
+    log::assert_not_empty "$config_path" "config path"
+
+    if declare -F config::load_embedded_default >/dev/null; then
+        config::load_embedded_default
+        return 0
+    fi
+
+    config::load "$config_path"
+}
+
 config::validate() {
-    local required_files=(
-        "$BUILD_PACMAN_CONF"
-    )
     local required_values=(
         "$BUILD_IMAGE_PATH"
         "$BUILD_IMAGE_SIZE"
@@ -32,15 +42,14 @@ config::validate() {
         "$BUILD_MKINITCPIO_HOOKS"
     )
     local value=""
-    local file_path=""
 
     for value in "${required_values[@]}"; do
         [[ -n "$value" ]] || log::die "Required build config value is empty"
     done
 
-    for file_path in "${required_files[@]}"; do
-        [[ -f "$file_path" ]] || log::die "Required build file is missing: $file_path"
-    done
+    if [[ ! -f "${BUILD_PACMAN_CONF:-}" ]] && ! assets::has_embedded "pacman/pacman-arm.conf"; then
+        log::die "Required pacman config is missing"
+    fi
 
     ((${#BUILD_MODULES[@]} > 0)) || log::die "BUILD_MODULES must not be empty"
     ((${#BUILD_PACKAGES[@]} > 0)) || log::die "BUILD_PACKAGES must not be empty"

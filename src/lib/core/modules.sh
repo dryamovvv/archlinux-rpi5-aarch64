@@ -14,9 +14,12 @@ modules::load() {
         module_path="$BUILD_MODULE_DIR/${module_name}.sh"
         register_function="${module_name}::register"
 
-        [[ -f "$module_path" ]] || log::die "Build module not found: $module_name"
-        # shellcheck disable=SC1090
-        source "$module_path"
+        if ! declare -F "$register_function" >/dev/null; then
+            [[ -f "$module_path" ]] || log::die "Build module not found: $module_name"
+            # shellcheck disable=SC1090
+            source "$module_path"
+        fi
+
         declare -F "$register_function" >/dev/null ||
             log::die "Build module '$module_name' does not define $register_function"
         "$register_function"

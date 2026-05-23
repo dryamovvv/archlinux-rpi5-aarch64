@@ -6,20 +6,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
-BUILD_PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [[ "$(basename "$SCRIPT_DIR")" == "bin" && "$(basename "$(dirname "$SCRIPT_DIR")")" == "dist" ]]; then
+    BUILD_PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+else
+    BUILD_PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
 readonly BUILD_PROJECT_ROOT
-BUILD_LIB_DIR="$BUILD_PROJECT_ROOT/lib"
+BUILD_LIB_DIR="$SCRIPT_DIR/lib"
 readonly BUILD_LIB_DIR
 BUILD_CORE_DIR="$BUILD_LIB_DIR/core"
 readonly BUILD_CORE_DIR
-# Used by lib/core/modules.sh after this entrypoint sources it.
+# Used by src/lib/core/modules.sh after this entrypoint sources it.
 BUILD_MODULE_DIR="$BUILD_LIB_DIR/modules"
 # shellcheck disable=SC2034
 readonly BUILD_MODULE_DIR
-BUILD_DEFAULT_CONFIG="$BUILD_PROJECT_ROOT/conf/build.conf"
+BUILD_DEFAULT_CONFIG="$BUILD_PROJECT_ROOT/build.conf"
 readonly BUILD_DEFAULT_CONFIG
-# Used by conf/build.conf and lib/bootstrap.sh after this entrypoint sources them.
-BUILD_PACMAN_CONF="$BUILD_PROJECT_ROOT/conf/pacman-arm.conf"
+# Used by build.conf and src/lib/bootstrap.sh after this entrypoint sources them.
+BUILD_PACMAN_CONF="$BUILD_PROJECT_ROOT/src/conf/pacman/pacman-arm.conf"
 # shellcheck disable=SC2034
 readonly BUILD_PACMAN_CONF
 
@@ -34,6 +38,8 @@ source "$BUILD_CORE_DIR/config.sh"
 # shellcheck disable=SC1091
 source "$BUILD_CORE_DIR/deps.sh"
 # shellcheck disable=SC1091
+source "$BUILD_CORE_DIR/assets.sh"
+# shellcheck disable=SC1091
 source "$BUILD_CORE_DIR/steps.sh"
 # shellcheck disable=SC1091
 source "$BUILD_CORE_DIR/modules.sh"
@@ -41,16 +47,17 @@ source "$BUILD_CORE_DIR/modules.sh"
 source "$BUILD_CORE_DIR/runner.sh"
 
 MAIN_CONFIG_PATH="$BUILD_DEFAULT_CONFIG"
+MAIN_CONFIG_EXPLICIT=0
 MAIN_USAGE_ERROR=0
 
 main::usage() {
     cat <<'EOF'
 Usage:
-  scripts/main.sh [options] build
-  scripts/main.sh [options] list-steps
-  scripts/main.sh [options] validate
-  scripts/main.sh [options] clean
-  scripts/main.sh help
+  rpi5-archlinux-image [options] build
+  rpi5-archlinux-image [options] list-steps
+  rpi5-archlinux-image [options] validate
+  rpi5-archlinux-image [options] clean
+  rpi5-archlinux-image help
 
 Options:
   --config PATH   Use an alternate build config.
@@ -70,6 +77,7 @@ main::parse_args() {
             --config)
                 (($# >= 2)) || log::die "--config requires a path"
                 MAIN_CONFIG_PATH="$2"
+                MAIN_CONFIG_EXPLICIT=1
                 shift 2
                 ;;
             --only)
@@ -109,14 +117,19 @@ main::parse_args() {
 
 main::load_build_context() {
     steps::reset
-    config::load "$MAIN_CONFIG_PATH"
+    if ((MAIN_CONFIG_EXPLICIT)); then
+        config::load "$MAIN_CONFIG_PATH"
+    else
+        config::load_default "$MAIN_CONFIG_PATH"
+    fi
     config::validate
     modules::load
 }
 
 main::require_root() {
     if [[ $EUID -ne 0 ]]; then
-        log::warn "Root privileges are required. Re-running with sudo..."
+        command -v sudo >/dev/null 2>&1 || log::die "Root privileges are required and sudo is not installed"
+        log::warn "Root privileges are required for this command. Re-running with sudo..."
         exec sudo -E "$0" "$@"
     fi
 }
