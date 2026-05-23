@@ -141,9 +141,9 @@ disk::create_image() {
         fi
     fi
 
-    # Логика создания пустого файла и разметки (через dd, parted)
+    # Используем sparse-файл, чтобы не тратить место хоста на пустые блоки.
     log::info "Создание образа $img_path размером $size..."
-    fallocate -l "$size" "$img_path"
+    truncate -s "$size" "$img_path"
 }
 
 disk::partition_simple() {

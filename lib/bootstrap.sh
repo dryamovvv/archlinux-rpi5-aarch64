@@ -19,11 +19,22 @@ bootstrap::add_qemu() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
     log::assert_not_empty "$QEMU_BIN" "qemu static"
+    mkdir -p "$target/usr/bin"
     log::info "Копирую $QEMU_BIN в $target/usr/bin"
     if cp "$QEMU_BIN" "$target/usr/bin"; then
         log::success "Успешно скопирован QEMU_BIN в $target/usr/bin"
     else
         log::die "Ошибка при копировании QEMU_BIN $target/usr/bin"
+    fi
+}
+
+bootstrap::remove_qemu() {
+    local target="$1"
+    log::assert_not_empty "$target" "точка монтирования"
+
+    if [[ -f "$target/usr/bin/qemu-aarch64-static" ]]; then
+        rm -f "$target/usr/bin/qemu-aarch64-static"
+        log::info "QEMU static удален из target rootfs"
     fi
 }
 
@@ -33,38 +44,19 @@ bootstrap::install_base() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
 
-    # Список базовых пакетов (минимальный набор 2026)
+    # Список базовых пакетов для первого запуска с донастройкой через first-boot.
     local pkgs=(
         "base"
         "archlinuxarm-keyring"
         "pacman-mirrorlist"
         "linux-rpi-16k"
-        "linux-rpi-16k-headers"
         "raspberrypi-bootloader"
         "raspberrypi-utils"
         "firmware-raspberrypi"
         "wireless-regdb"
-        "lm_sensors"
-        "bash-completion"
-        "nano"
-        "tmux"
-        "htop"
-        "nvme-cli"
         "zram-generator"
         "sudo"
-        "stress-ng"
-        "zram-generator"
         "openssh"
-        "git"
-        "dosfstools"
-        "polkit"
-        "less"
-	"lsof"
-	"strace"
-	"man"
-	"python-setuptools"
-	"python-pip"
-	"python-pipx"
     )
 
     log::info "Начало установки базовой системы (pacstrap)..."
@@ -116,71 +108,94 @@ bootstrap::fix_locale_conf() {
     fi
 }
 
-# Настройка системных параметров внутри образа
-# Аргументы: $1 - точка монтирования, $2 - имя хоста (hostname)
-bootstrap::locale_gen() {
+bootstrap::locale_gen_file() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
 
-    log::info "Генерация локали..."
-    arch-chroot "$target" /bin/bash <<EOF
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-    locale-gen > /dev/null
-EOF
-
-    log::success "Система настроена."
+    mkdir -p "$target/etc"
+    if ! grep -q '^en_US.UTF-8 UTF-8$' "$target/etc/locale.gen" 2>/dev/null; then
+        echo "en_US.UTF-8 UTF-8" >>"$target/etc/locale.gen"
+    fi
 }
 
-bootstrap::root_passwd() {
+bootstrap::systemd_enable_unit() {
     local target="$1"
+    local unit="$2"
+    local wants_dir="$3"
+
     log::assert_not_empty "$target" "точка монтирования"
+    log::assert_not_empty "$unit" "systemd unit"
+    log::assert_not_empty "$wants_dir" "wants dir"
 
-    log::info "Установка пароля root..."
-    arch-chroot "$target" /bin/bash <<EOF
-
-        # Установка пароля root (по умолчанию 'root')
-        echo "root:root" | chpasswd
-EOF
-    log::success "Пароль root сменен."
+    mkdir -p "$target/etc/systemd/system/$wants_dir"
+    ln -sf "/usr/lib/systemd/system/$unit" "$target/etc/systemd/system/$wants_dir/$unit"
 }
 
-bootstrap::sudo_user() {
-    local target="$1"
-    local user_name="$2"
-    log::assert_not_empty "$target" "точка монтирования"
-    log::assert_not_empty "$target" "имя пользователя"
-
-    log::info "Создаем  /etc/sudoers.d/10-wheel..."
-    arch-chroot "$target" /bin/bash -c "cat <<EOF > /etc/sudoers.d/10-wheel
-%wheel ALL=(ALL:ALL) ALL
-EOF
-    chmod 0440 /etc/sudoers.d/10-wheel"
-
-    #     arch-chroot "$target" /bin/bash <<EOF
-    #         chmod 0440 /etc/sudoers.d/10-wheel
-    # EOF
-
-    log::info "Создание пользователя sudo"
-    arch-chroot "$target" /bin/bash <<EOF
-        useradd -m -G wheel "$user_name"
-        echo "$user_name:$user_name" |  chpasswd
-        chage -d 0 "$user_name"
-EOF
-    log::success "Пользователь $user_name создан с временным паролем $user_name"
-}
-
-bootstrap::time() {
+bootstrap::systemd_firstboot() {
     local target="$1"
     local timezone="$2"
+    local root_password="$3"
+
     log::assert_not_empty "$target" "точка монтирования"
     log::assert_not_empty "$timezone" "часовой пояс"
-    arch-chroot "$target" /bin/bash <<EOF
-    # Установка временного пояса
-    ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
-    hwclock --systohc
-EOF
+    log::assert_not_empty "$root_password" "пароль root"
+
+    log::info "Применяем systemd-firstboot..."
+    systemd-firstboot \
+        --root="$target" \
+        --force \
+        --locale=en_US.UTF-8 \
+        --keymap=us \
+        --timezone="$timezone" \
+        --root-password="$root_password"
 }
 
+bootstrap::firstboot_service() {
+    local target="$1"
+    local user_name="$2"
+    local user_password="$3"
+
+    log::assert_not_empty "$target" "точка монтирования"
+    log::assert_not_empty "$user_name" "имя пользователя"
+    log::assert_not_empty "$user_password" "пароль пользователя"
+
+    mkdir -p "$target/usr/local/lib/rpi5-archlinux" "$target/etc/systemd/system"
+    cat <<EOF >"$target/usr/local/lib/rpi5-archlinux/firstboot.sh"
+#!/bin/bash
+set -euo pipefail
+
+if ! id -u "$user_name" >/dev/null 2>&1; then
+    useradd -m -G wheel "$user_name"
+fi
+
+echo "$user_name:$user_password" | chpasswd
+chage -d 0 "$user_name"
+locale-gen >/dev/null
+
+systemctl disable rpi5-firstboot.service
+rm -f /etc/systemd/system/multi-user.target.wants/rpi5-firstboot.service
+EOF
+    chmod 0755 "$target/usr/local/lib/rpi5-archlinux/firstboot.sh"
+
+    cat <<'EOF' >"$target/etc/systemd/system/rpi5-firstboot.service"
+[Unit]
+Description=Complete first boot provisioning
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/rpi5-archlinux/firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    bootstrap::systemd_enable_unit "$target" "rpi5-firstboot.service" "multi-user.target.wants"
+}
+
+# Настройка системных параметров внутри образа
+# Аргументы: $1 - точка монтирования, $2 - имя хоста (hostname)
 bootstrap::cmdline_txt() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
@@ -242,13 +257,8 @@ bootstrap::mkinitcpio_conf() {
     log::assert_not_empty "$target" "точка монтирования"
     log::assert_not_empty "$new_hooks" "новая строка HOOKS"
     log::info "Обновляем $target/etc/mkinitcpio.conf..."
-    arch-chroot "$target" /bin/bash <<EOF
-    # Заменяем строку HOOKS
-    sed -i 's/^HOOKS=(.*/HOOKS=(systemd autodetect sd-vconsole modconf keyboard block  filesystems fsck sd-shutdown)/' /etc/mkinitcpio.conf
-    sed -i 's/^COMPRESSION="zstd"/#COMPRESSION="zstd"/' /etc/mkinitcpio.conf
-    # После изменения HOOKS всегда нужно пересобрать образ!
-    mkinitcpio -P
-EOF
+    sed -i 's/^HOOKS=(.*/HOOKS=(systemd autodetect sd-vconsole modconf keyboard block  filesystems fsck sd-shutdown)/' "$target/etc/mkinitcpio.conf"
+    sed -i 's/^COMPRESSION="zstd"/#COMPRESSION="zstd"/' "$target/etc/mkinitcpio.conf"
     log::info "Обновлен $target/etc/mkinitcpio.conf..."
 }
 
@@ -256,14 +266,17 @@ bootstrap::network() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
     log::info "Настраиваем systemd-networkd и resolved..."
-    arch-chroot "$target" /bin/bash <<EOF
-echo "[Match]" > /etc/systemd/network/20-wired.network
-echo "Name=en*" >> /etc/systemd/network/20-wired.network
-echo "[Network]" >> /etc/systemd/network/20-wired.network
-echo "DHCP=yes" >> /etc/systemd/network/20-wired.network
-echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-systemctl enable systemd-networkd systemd-resolved
+    mkdir -p "$target/etc/systemd/network"
+    cat <<'EOF' >"$target/etc/systemd/network/20-wired.network"
+[Match]
+Name=en*
+
+[Network]
+DHCP=yes
 EOF
+    ln -sf /run/systemd/resolve/stub-resolv.conf "$target/etc/resolv.conf"
+    bootstrap::systemd_enable_unit "$target" "systemd-networkd.service" "multi-user.target.wants"
+    bootstrap::systemd_enable_unit "$target" "systemd-resolved.service" "multi-user.target.wants"
 }
 
 bootstrap::sshd() {
@@ -273,10 +286,8 @@ bootstrap::sshd() {
     log::assert_not_empty "$ssh_user" "пользователь ssh"
 
     log::info "Настраиваем sshd"
-    arch-chroot "$target" /bin/bash <<EOF
-echo "AllowUsers $ssh_user" | tee -a /etc/ssh/sshd_config > /dev/null
-systemctl enable sshd.service systemd-resolved
-EOF
+    echo "AllowUsers $ssh_user" >>"$target/etc/ssh/sshd_config"
+    bootstrap::systemd_enable_unit "$target" "sshd.service" "multi-user.target.wants"
 }
 
 bootstrap::swap() {
@@ -311,16 +322,15 @@ bootstrap::zram() {
     log::assert_not_empty "$target" "точка монтирования"
 
     log::info "Настраиваем zram (zram-generator.conf)..."
-
-    arch-chroot "$target" tee /etc/systemd/zram-generator.conf >/dev/null <<EOF
+    mkdir -p "$target/etc/systemd"
+    cat <<EOF >"$target/etc/systemd/zram-generator.conf"
 [zram0]
 zram-size = 8192
 compression-algorithm = zstd
 swap-priority = 100
 EOF
 
-    # Установка правильных прав доступа — важный шаг для надежности
-    arch-chroot "$target" chmod 0644 /etc/systemd/zram-generator.conf
+    chmod 0644 "$target/etc/systemd/zram-generator.conf"
 }
 
 bootstrap::cpu_boost() {
@@ -328,10 +338,9 @@ bootstrap::cpu_boost() {
     log::assert_not_empty "$target" "точка монтирования"
 
     log::info "Настраиваем активацию CPU Boost при загрузке..."
-    arch-chroot "$target" /bin/bash <<EOF
-cat <<boostEOF > /etc/tmpfiles.d/cpu-boost.conf
+    mkdir -p "$target/etc/tmpfiles.d"
+    cat <<'EOF' >"$target/etc/tmpfiles.d/cpu-boost.conf"
 w /sys/devices/system/cpu/cpufreq/boost - - - - 1
-boostEOF
 EOF
 }
 
@@ -341,10 +350,10 @@ bootstrap::wifi_regdom() {
 
     log::info "Устанавливаем WIRELESS_REGDOM=RU..."
 
-    # Используем sed для раскомментирования строки с RU
-    # s/^#// — убирает символ решетки в начале строки
-    # Ищем конкретно WIRELESS_REGDOM="RU"
-    arch-chroot "$target" sed -i 's/^#WIRELESS_REGDOM="RU"/WIRELESS_REGDOM="RU"/' /etc/conf.d/wireless-regdom
+    mkdir -p "$target/etc/conf.d"
+    cat <<'EOF' >"$target/etc/conf.d/wireless-regdom"
+WIRELESS_REGDOM="RU"
+EOF
 }
 
 
@@ -352,10 +361,10 @@ bootstrap::resize_root(){
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
     log::info "Вызовем репарт при первой загрузке"
-    arch-chroot "$target" mkdir -p /etc/repart.d
-    arch-chroot "$target" tee /etc/repart.d/50-root.conf > /dev/null <<EOF
+    mkdir -p "$target/etc/repart.d"
+    cat <<EOF >"$target/etc/repart.d/50-root.conf"
 [Partition]
 Type=root-arm64
 EOF
-    arch-chroot "$target" systemctl enable systemd-growfs-root.service
+    bootstrap::systemd_enable_unit "$target" "systemd-growfs-root.service" "multi-user.target.wants"
 } 

@@ -20,7 +20,7 @@ shellcheck scripts/*.sh lib/*.sh tests/*.sh
 
 ## GitHub Actions
 - `.github/workflows/ci.yml` проверяет shell-скрипты, smoke-тесты и сборку builder-образа.
-- `.github/workflows/release.yml` запускается на тегах `v*`, собирает `arch_root.img` и публикует его в GitHub Release вместе с `arch_root.img.sha256`.
+- `.github/workflows/release.yml` запускается на тегах `v*`, собирает образ и публикует `arch_root.img.xz` вместе с `arch_root.img.xz.sha256`.
 - Локальный сценарий релиза:
 ```bash
 git tag v0.1.0
@@ -29,4 +29,6 @@ git push origin v0.1.0
 
 ## Container Build Environment
 - `Dockerfile` собирает Arch-based builder image со всеми утилитами, которые нужны текущему build flow.
-- В release workflow сборка идет внутри `docker run --privileged`, потому что скрипт использует `losetup`, `mount`, `mkfs`, `sfdisk` и `arch-chroot`.
+- В release workflow сборка идет внутри `docker run --privileged`, потому что скрипт использует `losetup`, `mount`, `mkfs` и `sfdisk`.
+- Для cross-arch setup раннер регистрирует `binfmt`, а `qemu-aarch64-static` используется только на этапе `pacstrap` и удаляется из target rootfs до упаковки образа.
+- Основная пост-конфигурация вынесена в `systemd-firstboot` и `rpi5-firstboot.service`, чтобы минимизировать build-time `arch-chroot`.

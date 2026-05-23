@@ -32,14 +32,16 @@ jobs:
       - name: Verify artifacts
         run: |
           test -f arch_root.img
-          sha256sum arch_root.img > arch_root.img.sha256
+          xz -T0 -9 arch_root.img
+          test -f arch_root.img.xz
+          sha256sum arch_root.img.xz > arch_root.img.xz.sha256
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            arch_root.img \
-            arch_root.img.sha256 \
+            arch_root.img.xz \
+            arch_root.img.xz.sha256 \
             --generate-notes \
             --title "$GITHUB_REF_NAME"

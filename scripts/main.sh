@@ -112,8 +112,8 @@ step_mount_fs(){
 }
 
 step_before_pacstrap(){
+    bootstrap::add_qemu "$MNT_ROOT"
     bootstrap::fix_vconsole "$MNT_ROOT"
-    bootstrap::fix_locale_conf "$MNT_ROOT"
 }
 
 step_pacstrap() {
@@ -122,19 +122,20 @@ step_pacstrap() {
 }
 
 step_setup(){
-    bootstrap::add_qemu "$MNT_ROOT"
-    bootstrap::locale_gen "$MNT_ROOT"
+    bootstrap::remove_qemu "$MNT_ROOT"
+    bootstrap::fix_locale_conf "$MNT_ROOT"
+    bootstrap::locale_gen_file "$MNT_ROOT"
+    bootstrap::systemd_firstboot "$MNT_ROOT" "$TIME_ZONE" "root"
+    bootstrap::firstboot_service "$MNT_ROOT" "$SUDO_USER" "$SUDO_USER"
     bootstrap::cmdline_txt "$MNT_BOOT"
     bootstrap::config_txt "$MNT_BOOT"
-    bootstrap::time "$MNT_ROOT" "$TIME_ZONE"
-    bootstrap::sudo_user "$MNT_ROOT" "$SUDO_USER"
-    bootstrap::root_passwd "$MNT_ROOT"
     bootstrap::mkinitcpio_conf "$MNT_ROOT" "$NEW_HOOKS"
     bootstrap::network "$MNT_ROOT"
     bootstrap::sshd "$MNT_ROOT" "$SSH_USER"
     bootstrap::zram "$MNT_ROOT"
     bootstrap::cpu_boost "$MNT_ROOT"
     bootstrap::wifi_regdom "$MNT_ROOT"
+    bootstrap::resize_root "$MNT_ROOT"
 }
 
 
