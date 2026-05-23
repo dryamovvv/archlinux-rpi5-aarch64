@@ -11,10 +11,6 @@ readonly _LIB_BOOTSTRAP_LOADED=1
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/log.sh"
 
-bootstrap::project_root() {
-    cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
-}
-
 # Установка базовых пакетов
 # Аргументы: $1 - точка монтирования
 bootstrap::install_base() {
