@@ -51,6 +51,7 @@ steps_output="$("$builder" list-steps)"
 [[ "$steps_output" == *"prepare_image"* ]] || fail "list-steps must include prepare_image"
 [[ "$steps_output" == *"install_base"* ]] || fail "list-steps must include install_base"
 [[ "$steps_output" == *"configure_services"* ]] || fail "list-steps must include configure_services"
+[[ "$steps_output" == *"shrink_image"* ]] || fail "list-steps must include shrink_image"
 
 only_steps_output="$("$builder" --only install_base list-steps)"
 [[ "$only_steps_output" == *"install_base"* ]] || fail "list-steps --only must include selected step"
@@ -70,6 +71,8 @@ rm -f "$custom_config"
 dry_run_output="$("$builder" --dry-run build)"
 [[ "$dry_run_output" == *$'prepare_image\tdisk_image::prepare'* ]] ||
     fail "dry-run build must print selected step functions"
+[[ "$dry_run_output" == *$'shrink_image\timage_shrink::shrink'* ]] ||
+    fail "dry-run build must shrink the final image"
 
 qemu_dry_run_output="$("$builder" --dry-run build-qemu)"
 [[ "$qemu_dry_run_output" == *$'export_qemu_boot\tqemu_boot_config::export_boot_artifacts'* ]] ||

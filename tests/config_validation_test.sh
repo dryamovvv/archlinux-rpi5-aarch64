@@ -22,6 +22,7 @@ set_valid_config() {
     BUILD_PACMAN_CONF="$repo_root/src/conf/pacman/pacman-arm.conf"
     BUILD_IMAGE_PATH="$repo_root/dist/images/archlinuxarm-rpi5-aarch64.img"
     BUILD_IMAGE_SIZE="4g"
+    BUILD_IMAGE_SHRINK_MARGIN="256M"
     BUILD_MOUNT_ROOT="/mnt/arch_build"
     BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"
     BUILD_USER_NAME="dryam"
@@ -47,6 +48,12 @@ expect_config_failure() {
 
 set_valid_config
 config::validate
+
+set_valid_config
+unset BUILD_IMAGE_SHRINK_MARGIN
+config::validate
+[[ "$BUILD_IMAGE_SHRINK_MARGIN" == "256M" ]] ||
+    fail "config validation must default missing image shrink margin"
 
 set_valid_config
 BUILD_ROOT_PASSWORD=""

@@ -66,9 +66,12 @@ config::select_qemu() {
 }
 
 config::validate() {
+    BUILD_IMAGE_SHRINK_MARGIN="${BUILD_IMAGE_SHRINK_MARGIN:-256M}"
+
     local required_values=(
         "$BUILD_IMAGE_PATH"
         "$BUILD_IMAGE_SIZE"
+        "$BUILD_IMAGE_SHRINK_MARGIN"
         "$BUILD_MOUNT_ROOT"
         "$BUILD_MOUNT_BOOT"
         "$BUILD_USER_NAME"

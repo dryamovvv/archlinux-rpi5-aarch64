@@ -30,7 +30,6 @@ bootstrap::install_base() {
             "raspberrypi-utils"
             "firmware-raspberrypi"
             "wireless-regdb"
-            "zram-generator"
             "sudo"
             "openssh"
         )
@@ -62,6 +61,7 @@ bootstrap::generate_fstab() {
     log::info "Генерация /etc/fstab..."
     # -U использует UUID разделов (стандарт безопасности)
     genfstab -U "$target" >>"$target/etc/fstab"
+    bootstrap::disable_swap "$target"
 }
 
 bootstrap::fix_vconsole() {
@@ -151,6 +151,10 @@ fi
 echo "$user_name:$user_password" | chpasswd
 chage -d 0 "$user_name"
 locale-gen >/dev/null
+if command -v systemd-repart >/dev/null 2>&1; then
+    systemd-repart --dry-run=no
+fi
+systemctl restart systemd-growfs-root.service || true
 
 systemctl disable rpi5-firstboot.service
 rm -f /etc/systemd/system/multi-user.target.wants/rpi5-firstboot.service
@@ -230,47 +234,16 @@ bootstrap::sshd() {
     bootstrap::systemd_enable_unit "$target" "sshd.service" "multi-user.target.wants"
 }
 
-bootstrap::swap() {
+bootstrap::disable_swap() {
     local target="$1"
     log::assert_not_empty "$target" "точка монтирования"
 
-    log::info "Создание и активация swap-файла (4GB)..."
-
-    arch-chroot "$target" /bin/bash <<EOF
-# Создаем директорию, если её нет
-mkdir -p /swap
-
-# Используем fallocate — это быстрее и современнее, чем dd
-# Если файловая система (например, F2FS или BTRFS) не поддерживает fallocate, dd будет запасным вариантом
-fallocate -l 4G /swap/swapfile || dd if=/dev/zero of=/swap/swapfile bs=1M count=4096 status=progress
-
-# Устанавливаем критически важные права доступа
-chmod 600 /swap/swapfile
-
-# Инициализируем swap
-mkswap /swap/swapfile
-
-# Добавляем запись в /etc/fstab, если её там еще нет (проверка через grep)
-if ! grep -q "/swap/swapfile" /etc/fstab; then
-    echo "/swap/swapfile none swap defaults 0 0" >> /etc/fstab
-fi
-EOF
-}
-
-bootstrap::zram() {
-    local target="$1"
-    log::assert_not_empty "$target" "точка монтирования"
-
-    log::info "Настраиваем zram (zram-generator.conf)..."
-    mkdir -p "$target/etc/systemd"
-    cat <<EOF >"$target/etc/systemd/zram-generator.conf"
-[zram0]
-zram-size = 8192
-compression-algorithm = zstd
-swap-priority = 100
-EOF
-
-    chmod 0644 "$target/etc/systemd/zram-generator.conf"
+    log::info "Отключаем swap-файл и zram в образе..."
+    rm -f "$target/etc/systemd/zram-generator.conf"
+    rm -rf "$target/swap"
+    if [[ -f "$target/etc/fstab" ]]; then
+        sed -i -E '/[[:space:]]swap[[:space:]]/d' "$target/etc/fstab"
+    fi
 }
 
 bootstrap::cpu_boost() {
@@ -305,6 +278,7 @@ bootstrap::resize_root() {
     cat <<EOF >"$target/etc/repart.d/50-root.conf"
 [Partition]
 Type=root-arm64
+GrowFileSystem=yes
 EOF
     bootstrap::systemd_enable_unit "$target" "systemd-growfs-root.service" "multi-user.target.wants"
 }

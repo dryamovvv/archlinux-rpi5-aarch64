@@ -59,6 +59,8 @@ jobs:
           bash tests/structure_smoke.sh
           bash tests/workflows_smoke.sh
           bash tests/disk_partition_refresh_test.sh
+          bash tests/disk_shrink_test.sh
+          bash tests/fstab_swap_cleanup_test.sh
           bash tests/disk_cleanup_test.sh
           bash tests/steps_registry_test.sh
           bash tests/boot_validation_test.sh

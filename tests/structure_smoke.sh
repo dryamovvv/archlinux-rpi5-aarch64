@@ -32,8 +32,30 @@ grep -q '^build\.conf$' "$repo_root/.gitignore" || fail ".gitignore must exclude
 [[ -f "$repo_root/src/conf/boot/cmdline.txt" ]] || fail "missing active cmdline.txt"
 [[ -f "$repo_root/src/conf/systemd/rpi5-firstboot.service" ]] || fail "missing active firstboot service"
 [[ -f "$repo_root/src/lib/modules/qemu_boot_config.sh" ]] || fail "missing qemu boot config module"
+[[ -f "$repo_root/src/lib/modules/image_shrink.sh" ]] || fail "missing image shrink module"
 grep -q 'Complete first boot provisioning' "$repo_root/src/conf/systemd/rpi5-firstboot.service" ||
     fail "firstboot service asset must be non-empty and active"
+grep -q 'systemd-repart --dry-run=no' "$repo_root/src/lib/bootstrap.sh" ||
+    fail "firstboot provisioning must grow the root partition"
+grep -q 'systemd-growfs-root.service' "$repo_root/src/lib/bootstrap.sh" ||
+    fail "firstboot provisioning must grow the root filesystem"
+if grep -Fq "bootstrap::zram \"\$BUILD_MOUNT_ROOT\"" "$repo_root/src/lib/modules/services.sh"; then
+    fail "services must not enable zram"
+fi
+if grep -q '"zram-generator"' "$repo_root/build.conf.example"; then
+    fail "default package list must not install zram-generator"
+fi
+if grep -q '"zram-generator"' "$repo_root/src/lib/bootstrap.sh"; then
+    fail "bootstrap fallback package list must not install zram-generator"
+fi
+if grep -q 'bootstrap::zram()' "$repo_root/src/lib/bootstrap.sh"; then
+    fail "bootstrap must not keep zram setup helper"
+fi
+if grep -q 'bootstrap::swap()' "$repo_root/src/lib/bootstrap.sh"; then
+    fail "bootstrap must not keep swapfile setup helper"
+fi
+grep -Fq "bootstrap::disable_swap \"\$BUILD_MOUNT_ROOT\"" "$repo_root/src/lib/modules/services.sh" ||
+    fail "services must disable stale swap configuration"
 [[ -f "$repo_root/.gitignore" ]] || fail "missing .gitignore"
 grep -q '^archlinuxarm-rpi5-aarch64\.img$' "$repo_root/.gitignore" || fail ".gitignore must exclude raw image artifacts"
 grep -q '^archlinuxarm-rpi5-aarch64-.*\.img\.xz$' "$repo_root/.gitignore" || fail ".gitignore must exclude compressed release image artifacts"
@@ -42,6 +64,7 @@ grep -q '^dist/$' "$repo_root/.gitignore" || fail ".gitignore must exclude packa
 
 grep -q './dist/bin/rpi5-archlinux-image' "$repo_root/README.md" || fail "README must reference ./dist/bin/rpi5-archlinux-image"
 grep -Fq 'archlinuxarm-rpi5-aarch64.img' "$repo_root/README.md" || fail "README must document canonical local image name"
+grep -q 'BUILD_IMAGE_SHRINK_MARGIN' "$repo_root/README.md" || fail "README must document image shrink margin"
 grep -Fq "archlinuxarm-rpi5-aarch64-\${TAG}.img.xz" "$repo_root/README.md" || fail "README must document tagged release image name"
 grep -Fq 'archlinuxarm-qemu-aarch64.img' "$repo_root/README.md" || fail "README must document canonical QEMU image name"
 grep -Fq "archlinuxarm-qemu-aarch64-\${TAG}.img.xz" "$repo_root/README.md" || fail "README must document tagged QEMU image name"

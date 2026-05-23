@@ -22,6 +22,9 @@ deps::require_commands() {
 deps::validate_build_commands() {
     deps::require_commands \
         blockdev \
+        dumpe2fs \
+        e2fsck \
+        fuser \
         genfstab \
         losetup \
         mkfs.ext4 \
@@ -30,6 +33,8 @@ deps::validate_build_commands() {
         pacstrap \
         partprobe \
         partx \
+        resize2fs \
+        sgdisk \
         sfdisk \
         systemd-firstboot \
         udevadm \

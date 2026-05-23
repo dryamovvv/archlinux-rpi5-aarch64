@@ -4,6 +4,7 @@
 
 BUILD_IMAGE_PATH="$BUILD_PROJECT_ROOT/dist/images/archlinuxarm-rpi5-aarch64.img"
 BUILD_IMAGE_SIZE="4g"
+BUILD_IMAGE_SHRINK_MARGIN="256M"
 BUILD_MOUNT_ROOT="/mnt/arch_build"
 BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"
 
@@ -29,6 +30,7 @@ BUILD_MODULES=(
     "boot_config"
     "services"
     "release_validation"
+    "image_shrink"
 )
 
 BUILD_PACKAGES=(
@@ -40,7 +42,6 @@ BUILD_PACKAGES=(
     "raspberrypi-utils"
     "firmware-raspberrypi"
     "wireless-regdb"
-    "zram-generator"
     "sudo"
     "openssh"
 )
@@ -50,6 +51,7 @@ BUILD_QEMU_MODULES=(
     "base_system"
     "qemu_boot_config"
     "services"
+    "image_shrink"
 )
 
 BUILD_QEMU_PACKAGES=(

@@ -28,6 +28,8 @@ cp build.conf.example build.conf
 ./dist/bin/rpi5-archlinux-image --config ./my-build.conf build
 ```
 
+`BUILD_IMAGE_SIZE` задает staging-размер образа для сборки. Финальный шаг `image_shrink` уменьшает готовый ext4 root-раздел и сам `.img` до фактически занятого места плюс запас `BUILD_IMAGE_SHRINK_MARGIN`; при первой загрузке root-раздел снова расширяется на весь диск через systemd-growfs/repart конфигурацию.
+
 ## QEMU testing
 ```bash
 ./dist/bin/rpi5-archlinux-image build-qemu
@@ -47,7 +49,7 @@ shellcheck scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modul
 
 ## GitHub Actions
 - `.github/workflows/ci.yml` проверяет shell-скрипты и smoke-тесты.
-- `.github/workflows/release.yml` запускается на тегах `v*`, собирает образы на native `arm64` runner и публикует `archlinuxarm-rpi5-aarch64-${TAG}.img.xz`, `archlinuxarm-qemu-aarch64-${TAG}.img.xz` и соответствующие `.sha256`.
+- `.github/workflows/release.yml` запускается на тегах `v*`, собирает Raspberry Pi образ на native `arm64` runner и публикует `archlinuxarm-rpi5-aarch64-${TAG}.img.xz` с `.sha256`. QEMU образ публикуется только при ручном запуске workflow с `include_qemu=true`.
 - Локальный сценарий релиза:
 ```bash
 git tag v0.1.0

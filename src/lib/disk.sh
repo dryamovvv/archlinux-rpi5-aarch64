@@ -143,6 +143,208 @@ disk::create_image() {
     truncate -s "$size" "$img_path"
 }
 
+disk::size_to_bytes() {
+    local size="$1"
+    local number=""
+    local unit=""
+    local multiplier=1
+
+    log::assert_not_empty "$size" "size"
+
+    if [[ "$size" =~ ^([0-9]+)([bBkKmMgG]?)$ ]]; then
+        number="${BASH_REMATCH[1]}"
+        unit="${BASH_REMATCH[2],,}"
+    else
+        log::die "Некорректный размер: $size"
+    fi
+
+    case "$unit" in
+        ""|b)
+            multiplier=1
+            ;;
+        k)
+            multiplier=1024
+            ;;
+        m)
+            multiplier=$((1024 * 1024))
+            ;;
+        g)
+            multiplier=$((1024 * 1024 * 1024))
+            ;;
+        *)
+            log::die "Неподдерживаемая единица размера: $unit"
+            ;;
+    esac
+
+    printf '%s\n' "$((number * multiplier))"
+}
+
+disk::ceil_div() {
+    local value="$1"
+    local divisor="$2"
+
+    log::assert_not_empty "$value" "value"
+    log::assert_not_empty "$divisor" "divisor"
+
+    printf '%s\n' "$(((value + divisor - 1) / divisor))"
+}
+
+disk::ext4_size_bytes() {
+    local part="$1"
+    local block_count=""
+    local block_size=""
+
+    log::assert_not_empty "$part" "root partition"
+
+    while IFS=: read -r key value; do
+        value="${value//[[:space:]]/}"
+        case "$key" in
+            "Block count")
+                block_count="$value"
+                ;;
+            "Block size")
+                block_size="$value"
+                ;;
+        esac
+    done < <(dumpe2fs -h "$part" 2>/dev/null)
+
+    log::assert_not_empty "$block_count" "ext4 block count"
+    log::assert_not_empty "$block_size" "ext4 block size"
+
+    printf '%s\n' "$((block_count * block_size))"
+}
+
+disk::detach_partition_loops() {
+    local partition_loop_dev=""
+
+    for partition_loop_dev in "${PARTITION_LOOP_DEVS[@]:-}"; do
+        if [[ -n "$partition_loop_dev" ]]; then
+            log::info "Отключение устройства раздела $partition_loop_dev перед изменением таблицы разделов..."
+            losetup -d "$partition_loop_dev" 2>/dev/null ||
+                log::warn "Не удалось освободить $partition_loop_dev"
+        fi
+    done
+    PARTITION_LOOP_DEVS=()
+}
+
+disk::rewrite_partition_size() {
+    local loop_dev="$1"
+    local partition_number="$2"
+    local new_size_sectors="$3"
+    local partition_prefix=""
+    local line=""
+    local device_field=""
+    local found=0
+    local dump_file=""
+
+    log::assert_not_empty "$loop_dev" "loop device"
+    log::assert_not_empty "$partition_number" "partition number"
+    log::assert_not_empty "$new_size_sectors" "new partition size"
+
+    partition_prefix="$(disk::partition_device_path "$loop_dev" "$partition_number")"
+    dump_file="$(mktemp)"
+    trap 'rm -f "$dump_file"' RETURN
+
+    while IFS= read -r line; do
+        device_field="${line%%:*}"
+        device_field="${device_field//[[:space:]]/}"
+        if [[ "$device_field" == "$partition_prefix" ]]; then
+            line="$(sed -E "s/size=[[:space:]]*[0-9]+/size= $new_size_sectors/" <<<"$line")"
+            found=1
+        fi
+        printf '%s\n' "$line" >>"$dump_file"
+    done < <(sfdisk --dump "$loop_dev")
+
+    ((found == 1)) || log::die "Не удалось найти раздел ${partition_number} в таблице $loop_dev"
+
+    sfdisk --force --quiet "$loop_dev" <"$dump_file"
+    rm -f "$dump_file"
+    trap - RETURN
+}
+
+disk::refresh_partitions() {
+    local loop_dev="$1"
+
+    log::assert_not_empty "$loop_dev" "loop device"
+
+    partprobe "$loop_dev" || true
+    partx -u "$loop_dev" || true
+    udevadm settle
+}
+
+disk::shrink_image() {
+    local img_path="$1"
+    local loop_dev="$2"
+    local root_partition_number="$3"
+    local margin="$4"
+    local root_part=""
+    local layout=""
+    local start_sector=""
+    local current_size_sectors=""
+    local sector_size=""
+    local fs_size_bytes=""
+    local margin_bytes=""
+    local wanted_root_bytes=""
+    local wanted_root_sectors=""
+    local alignment_sectors=2048
+    local gpt_slack_sectors=2048
+    local final_image_sectors=""
+    local final_image_bytes=""
+
+    log::assert_not_empty "$img_path" "путь к образу"
+    log::assert_not_empty "$loop_dev" "loop device"
+    log::assert_not_empty "$root_partition_number" "root partition number"
+    log::assert_not_empty "$margin" "shrink margin"
+
+    disk::resolve_partition_path "$loop_dev" "$root_partition_number"
+    root_part="$RESOLVED_PARTITION_PATH"
+
+    log::info "Размонтирование файловых систем перед уменьшением образа..."
+    if [[ -n "${BUILD_MOUNT_ROOT:-}" ]] && mountpoint -q "$BUILD_MOUNT_ROOT"; then
+        if ! umount -R "$BUILD_MOUNT_ROOT" 2>/dev/null; then
+            log::warn "Размонтирование перед уменьшением не удалось, освобождаем занятые процессы..."
+            fuser -km "$BUILD_MOUNT_ROOT" 2>/dev/null || true
+            sleep 1
+            umount -R -l "$BUILD_MOUNT_ROOT" 2>/dev/null ||
+                log::die "Не удалось размонтировать $BUILD_MOUNT_ROOT перед уменьшением образа"
+        fi
+    fi
+    sync
+
+    log::info "Проверка и уменьшение ext4 root filesystem..."
+    e2fsck -fy "$root_part"
+    resize2fs -M "$root_part"
+    e2fsck -fy "$root_part"
+
+    layout="$(disk::partition_layout "$loop_dev" "$root_partition_number")"
+    read -r start_sector current_size_sectors sector_size <<<"$layout"
+    fs_size_bytes="$(disk::ext4_size_bytes "$root_part")"
+    margin_bytes="$(disk::size_to_bytes "$margin")"
+    wanted_root_bytes="$((fs_size_bytes + margin_bytes))"
+    wanted_root_sectors="$(disk::ceil_div "$wanted_root_bytes" "$sector_size")"
+    wanted_root_sectors="$(disk::ceil_div "$wanted_root_sectors" "$alignment_sectors")"
+    wanted_root_sectors="$((wanted_root_sectors * alignment_sectors))"
+
+    if ((wanted_root_sectors >= current_size_sectors)); then
+        log::info "Root-раздел уже не требует уменьшения"
+        return 0
+    fi
+
+    log::info "Уменьшение root-раздела до ${wanted_root_sectors} секторов..."
+    disk::detach_partition_loops
+    disk::rewrite_partition_size "$loop_dev" "$root_partition_number" "$wanted_root_sectors"
+    disk::refresh_partitions "$loop_dev"
+
+    final_image_sectors="$((start_sector + wanted_root_sectors + gpt_slack_sectors))"
+    final_image_bytes="$((final_image_sectors * sector_size))"
+
+    log::info "Уменьшение файла образа до ${final_image_bytes} байт..."
+    truncate -s "$final_image_bytes" "$img_path"
+    sgdisk -e "$img_path" >/dev/null
+    losetup -c "$loop_dev"
+    disk::refresh_partitions "$loop_dev"
+}
+
 disk::partition_simple() {
     local target="$1"
     log::assert_not_empty "$target" "целевое устройство/файл"

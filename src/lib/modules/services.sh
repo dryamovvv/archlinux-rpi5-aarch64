@@ -20,7 +20,7 @@ services::configure_system() {
 services::configure_services() {
     bootstrap::network "$BUILD_MOUNT_ROOT"
     bootstrap::sshd "$BUILD_MOUNT_ROOT" "$BUILD_SSH_USER"
-    bootstrap::zram "$BUILD_MOUNT_ROOT"
+    bootstrap::disable_swap "$BUILD_MOUNT_ROOT"
     bootstrap::cpu_boost "$BUILD_MOUNT_ROOT"
     bootstrap::wifi_regdom "$BUILD_MOUNT_ROOT"
     bootstrap::resize_root "$BUILD_MOUNT_ROOT"

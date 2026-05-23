@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      include_qemu:
+        description: "Build and publish the QEMU image"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -41,6 +48,7 @@ jobs:
         run: ./dist/bin/rpi5-archlinux-image build
 
       - name: Build QEMU image
+        if: github.event_name == 'workflow_dispatch' && inputs.include_qemu
         run: ./dist/bin/rpi5-archlinux-image build-qemu
 
       - name: Validate boot partition
@@ -54,6 +62,7 @@ jobs:
           done
 
       - name: Verify QEMU boot starts
+        if: github.event_name == 'workflow_dispatch' && inputs.include_qemu
         run: |
           set +e
           timeout 60 ./dist/bin/rpi5-archlinux-image qemu-run > qemu-boot.log 2>&1
@@ -69,16 +78,19 @@ jobs:
         run: |
           image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
           checksum_name="${image_name}.sha256"
-          qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
-          qemu_checksum_name="${qemu_image_name}.sha256"
           test -f dist/images/archlinuxarm-rpi5-aarch64.img
-          test -f dist/images/archlinuxarm-qemu-aarch64.img
           xz -T0 -9 -c dist/images/archlinuxarm-rpi5-aarch64.img > "dist/images/${image_name}"
-          xz -T0 -9 -c dist/images/archlinuxarm-qemu-aarch64.img > "dist/images/${qemu_image_name}"
           test -f "dist/images/${image_name}"
-          test -f "dist/images/${qemu_image_name}"
           sha256sum "dist/images/${image_name}" > "dist/images/${checksum_name}"
-          sha256sum "dist/images/${qemu_image_name}" > "dist/images/${qemu_checksum_name}"
+
+          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.include_qemu }}" == "true" ]]; then
+            qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
+            qemu_checksum_name="${qemu_image_name}.sha256"
+            test -f dist/images/archlinuxarm-qemu-aarch64.img
+            xz -T0 -9 -c dist/images/archlinuxarm-qemu-aarch64.img > "dist/images/${qemu_image_name}"
+            test -f "dist/images/${qemu_image_name}"
+            sha256sum "dist/images/${qemu_image_name}" > "dist/images/${qemu_checksum_name}"
+          fi
 
       - name: Publish GitHub release
         env:
@@ -86,12 +98,21 @@ jobs:
         run: |
           image_name="archlinuxarm-rpi5-aarch64-${GITHUB_REF_NAME}.img.xz"
           checksum_name="${image_name}.sha256"
-          qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
-          qemu_checksum_name="${qemu_image_name}.sha256"
+          release_assets=(
+            "dist/images/${image_name}"
+            "dist/images/${checksum_name}"
+          )
+
+          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.include_qemu }}" == "true" ]]; then
+            qemu_image_name="archlinuxarm-qemu-aarch64-${GITHUB_REF_NAME}.img.xz"
+            qemu_checksum_name="${qemu_image_name}.sha256"
+            release_assets+=(
+              "dist/images/${qemu_image_name}"
+              "dist/images/${qemu_checksum_name}"
+            )
+          fi
+
           gh release create "$GITHUB_REF_NAME" \
-            "dist/images/${image_name}" \
-            "dist/images/${checksum_name}" \
-            "dist/images/${qemu_image_name}" \
-            "dist/images/${qemu_checksum_name}" \
+            "${release_assets[@]}" \
             --generate-notes \
             --title "$GITHUB_REF_NAME"
