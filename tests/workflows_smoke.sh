@@ -21,3 +21,9 @@ grep -q '"v\*"' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must target v* tags"
 grep -q 'gh release create' "$repo_root/.github/workflows/release.yml" \
     || fail "release workflow must publish a GitHub release"
+grep -q 'tonistiigi/binfmt' "$repo_root/.github/workflows/release.yml" \
+    || fail "release workflow must register binfmt for cross-arch execution"
+grep -q 'qemu-user-static' "$repo_root/Dockerfile" \
+    || fail "Dockerfile must include qemu-user-static for arch-chroot on x86 runners"
+grep -q 'bootstrap::add_qemu' "$repo_root/scripts/main.sh" \
+    || fail "main script must copy qemu into target before arch-chroot steps"

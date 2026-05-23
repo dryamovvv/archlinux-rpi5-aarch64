@@ -122,6 +122,7 @@ step_pacstrap() {
 }
 
 step_setup(){
+    bootstrap::add_qemu "$MNT_ROOT"
     bootstrap::locale_gen "$MNT_ROOT"
     bootstrap::cmdline_txt "$MNT_BOOT"
     bootstrap::config_txt "$MNT_BOOT"

@@ -15,6 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Register binfmt for arm64
+        run: docker run --rm --privileged tonistiigi/binfmt --install arm64
+
       - name: Build builder image
         run: docker build -t rpi5-archlinux-builder .
 
