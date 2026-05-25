@@ -61,3 +61,74 @@ git push origin v0.1.0
 - Build dependencies ставятся напрямую через `apt`, после чего workflow запускает `./dist/bin/rpi5-archlinux-image build` без собственного builder-контейнера. Builder сам повышает права через `sudo` только для привилегированных команд. Образ и release artifacts создаются в `dist/images/`.
 - `pacstrap` и post-install hooks выполняются без `qemu-user-static` и `binfmt`.
 - Основная пост-конфигурация вынесена в `systemd-firstboot` и `rpi5-firstboot.service`, чтобы минимизировать build-time `arch-chroot`.
+
+## Сборка образа
+
+Сборка образа выполняется упакованным CLI, который находится в `dist/bin/rpi5-archlinux-image`.
+
+```bash
+# Копируем шаблон конфигурации и редактируем под свои нужды
+cp build.conf.example build.conf
+# Редактируем build.conf (root-пароль, размер образа и т.д.)
+# Собираем упакованный CLI
+./scripts/package.sh
+# Запускаем сборку образа
+./dist/bin/rpi5-archlinux-image build
+```
+
+Для использования внешнего конфигурационного файла (не встроенного по умолчанию) передайте его через `--config`:
+
+```bash
+./dist/bin/rpi5-archlinux-image --config ./my-build.conf build
+```
+
+Для сборки тестового QEMU-образа (запускается в эмуляторе, без записи на SD-карту):
+
+```bash
+./dist/bin/rpi5-archlinux-image build-qemu
+./dist/bin/rpi5-archlinux-image qemu-run
+```
+
+## Первый запуск
+
+- Пользователь (`dryam` по умолчанию) создается **без пароля**. При первом входе по SSH система потребует немедленную смену пароля.
+- Root-пароль задается в `build.conf` (переменная `BUILD_ROOT_PASSWORD`); по умолчанию — `root`.
+- После загрузки Raspberry Pi доступен по mDNS:
+  ```bash
+  ssh dryam@arch-rpi5.local
+  ```
+  или по IP-адресу, выданному DHCP-сервером.
+
+## Загрузка с NVMe
+
+Для загрузки с NVMe-диска необходимо прошить EEPROM Raspberry Pi 5 с правильным порядком загрузки:
+
+```bash
+sudo rpi-eeprom-config --edit
+```
+
+Установите `BOOT_ORDER=0xf416` (NVMe > USB > SD), сохраните и перезагрузите.
+
+Подробнее см. официальную документацию Raspberry Pi: [NVMe SSD boot](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#nvme-ssd-boot).
+
+## Кастомизация
+
+Сборка поддерживает несколько опций для тонкой настройки образа:
+
+- **ZRAM** — включение сжатой swap-памяти в ОЗУ. Установите `BUILD_ENABLE_ZRAM=1` в `build.conf`:
+  ```bash
+  BUILD_ENABLE_ZRAM=1
+  ```
+
+- **Wi-Fi** — предварительная настройка беспроводной сети. Установите `BUILD_ENABLE_WIFI=1` и заполните `BUILD_WIFI_SSID` / `BUILD_WIFI_PSK`:
+  ```bash
+  BUILD_ENABLE_WIFI=1
+  BUILD_WIFI_SSID="MyNetwork"
+  BUILD_WIFI_PSK="my-password"
+  ```
+
+- **Быстрая dev-сборка** — для ускорения цикла разработки можно отключить сжатие initramfs, установив `BUILD_MKINITCPIO_COMPRESSION="cat"`:
+  ```bash
+  BUILD_MKINITCPIO_COMPRESSION="cat"
+  ```
+  Это создает несжатый initramfs, что значительно ускоряет сборку ценой большего размера boot-раздела.
