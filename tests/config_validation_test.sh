@@ -11,7 +11,10 @@ log::info() { :; }
 log::success() { :; }
 log::warn() { :; }
 log::error() { printf '%s\n' "$*" >&2; }
-log::die() { printf '%s\n' "$*" >&2; exit 1; }
+log::die() {
+    printf '%s\n' "$*" >&2
+    exit 1
+}
 
 fail() {
     printf 'FAIL: %s\n' "$1" >&2
@@ -40,11 +43,11 @@ expect_config_failure() {
     local message="$1"
 
     if (config::validate) >/tmp/rpi5-config-validation.out 2>&1; then
-        fail "$message"
+      fail "$message"
     fi
 
     grep -q "Required build config value is empty" /tmp/rpi5-config-validation.out ||
-        fail "$message must explain missing required value"
+      fail "$message must explain missing required value"
 }
 
 set_valid_config
@@ -61,8 +64,8 @@ BUILD_ROOT_PASSWORD=""
 expect_config_failure "config validation must reject empty root password"
 
 set_valid_config
-BUILD_USER_PASSWORD=""
-expect_config_failure "config validation must reject empty user password"
+# BUILD_USER_PASSWORD is optional — user changes password on first login via chage -d 0
+# expect_config_failure "config validation must reject empty user password"
 
 set_valid_config
 BUILD_MKINITCPIO_HOOKS=""

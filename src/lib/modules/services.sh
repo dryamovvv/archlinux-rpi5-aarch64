@@ -13,7 +13,7 @@ services::register() {
 services::configure_system() {
     bootstrap::locale_gen_file "$BUILD_MOUNT_ROOT"
     bootstrap::systemd_firstboot "$BUILD_MOUNT_ROOT" "$BUILD_TIMEZONE" "$BUILD_ROOT_PASSWORD" "$BUILD_HOSTNAME"
-    bootstrap::firstboot_service "$BUILD_MOUNT_ROOT" "$BUILD_USER_NAME" "$BUILD_USER_PASSWORD"
+    bootstrap::firstboot_service "$BUILD_MOUNT_ROOT" "$BUILD_USER_NAME"
 }
 
 services::configure_services() {

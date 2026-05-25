@@ -21,8 +21,8 @@ config::load_default() {
     log::assert_not_empty "$config_path" "config path"
 
     if declare -F config::load_embedded_default >/dev/null; then
-        config::load_embedded_default
-        return 0
+      config::load_embedded_default
+      return 0
     fi
 
     config::load "$config_path"
@@ -41,27 +41,27 @@ config::select_qemu() {
     BUILD_QEMU_KERNEL_CMDLINE="${BUILD_QEMU_KERNEL_CMDLINE:-root=/dev/vda2 rw rootwait console=ttyAMA0}"
 
     if declare -p BUILD_QEMU_MODULES >/dev/null 2>&1; then
-        BUILD_MODULES=("${BUILD_QEMU_MODULES[@]}")
+      BUILD_MODULES=("${BUILD_QEMU_MODULES[@]}")
     else
-        BUILD_MODULES=(
-            "disk_image"
-            "base_system"
-            "qemu_boot_config"
-            "services"
-        )
+      BUILD_MODULES=(
+        "disk_image"
+        "base_system"
+        "qemu_boot_config"
+        "services"
+      )
     fi
 
     if declare -p BUILD_QEMU_PACKAGES >/dev/null 2>&1; then
-        BUILD_PACKAGES=("${BUILD_QEMU_PACKAGES[@]}")
+      BUILD_PACKAGES=("${BUILD_QEMU_PACKAGES[@]}")
     else
-        BUILD_PACKAGES=(
-            "base"
-            "archlinuxarm-keyring"
-            "pacman-mirrorlist"
-            "linux-aarch64"
-            "sudo"
-            "openssh"
-        )
+      BUILD_PACKAGES=(
+        "base"
+        "archlinuxarm-keyring"
+        "pacman-mirrorlist"
+        "linux-aarch64"
+        "sudo"
+        "openssh"
+      )
     fi
 }
 
@@ -69,27 +69,26 @@ config::validate() {
     BUILD_IMAGE_SHRINK_MARGIN="${BUILD_IMAGE_SHRINK_MARGIN:-256M}"
 
     local required_values=(
-        "${BUILD_IMAGE_PATH:-}"
-        "${BUILD_IMAGE_SIZE:-}"
-        "${BUILD_IMAGE_SHRINK_MARGIN:-}"
-        "${BUILD_MOUNT_ROOT:-}"
-        "${BUILD_MOUNT_BOOT:-}"
-        "${BUILD_USER_NAME:-}"
-        "${BUILD_USER_PASSWORD:-}"
-        "${BUILD_SSH_USER:-}"
-        "${BUILD_ROOT_PASSWORD:-}"
-        "${BUILD_HOSTNAME:-}"
-        "${BUILD_TIMEZONE:-}"
-        "${BUILD_MKINITCPIO_HOOKS:-}"
+      "${BUILD_IMAGE_PATH:-}"
+      "${BUILD_IMAGE_SIZE:-}"
+      "${BUILD_IMAGE_SHRINK_MARGIN:-}"
+      "${BUILD_MOUNT_ROOT:-}"
+      "${BUILD_MOUNT_BOOT:-}"
+      "${BUILD_USER_NAME:-}"
+      "${BUILD_SSH_USER:-}"
+      "${BUILD_ROOT_PASSWORD:-}"
+      "${BUILD_HOSTNAME:-}"
+      "${BUILD_TIMEZONE:-}"
+      "${BUILD_MKINITCPIO_HOOKS:-}"
     )
     local value=""
 
     for value in "${required_values[@]}"; do
-        [[ -n "$value" ]] || log::die "Required build config value is empty"
+      [[ -n "$value" ]] || log::die "Required build config value is empty"
     done
 
     if [[ ! -f "${BUILD_PACMAN_CONF:-}" ]] && ! assets::has_embedded "pacman/pacman-arm.conf"; then
-        log::die "Required pacman config is missing"
+      log::die "Required pacman config is missing"
     fi
 
     ((${#BUILD_MODULES[@]} > 0)) || log::die "BUILD_MODULES must not be empty"
