@@ -68,3 +68,72 @@ jobs:
           bash tests/config_validation_test.sh
           bash tests/cli_test.sh
           ./dist/bin/rpi5-archlinux-image validate
+
+  build-arm:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            arch-install-scripts \
+            aria2 \
+            dosfstools \
+            e2fsprogs \
+            pacman-package-manager \
+            parted \
+            psmisc \
+            systemd \
+            udev \
+            util-linux \
+            mtools
+
+      - name: Package builder
+        run: |
+          cp build.conf.example build.conf
+          ./scripts/package.sh
+
+      - name: Build Arch Linux image
+        run: ./dist/bin/rpi5-archlinux-image build
+
+      - name: Validate boot partition
+        run: |
+          test -f dist/images/archlinux-rpi5-aarch64.img
+          tmp_boot="$(mktemp -d)"
+          trap 'rm -rf "$tmp_boot"' EXIT
+          for path in kernel8.img initramfs-linux.img bcm2712-rpi-5-b.dtb config.txt cmdline.txt; do
+            mcopy -i dist/images/archlinux-rpi5-aarch64.img@@1048576 "::/$path" "$tmp_boot/$path"
+            test -s "$tmp_boot/$path"
+          done
+
+      - name: Validate cmdline UUID
+        run: |
+          tmp_boot="$(mktemp -d)"
+          trap 'rm -rf "$tmp_boot"' EXIT
+          mcopy -i dist/images/archlinux-rpi5-aarch64.img@@1048576 "::/cmdline.txt" "$tmp_boot/cmdline.txt"
+          echo "cmdline.txt:"
+          cat "$tmp_boot/cmdline.txt"
+          if grep -q '__ROOT_UUID__' "$tmp_boot/cmdline.txt"; then
+            echo "ERROR: unresolved __ROOT_UUID__ placeholder"
+            exit 1
+          fi
+          if ! grep -qP 'root=UUID=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$tmp_boot/cmdline.txt"; then
+            echo "ERROR: no valid root=UUID= in cmdline.txt"
+            exit 1
+          fi
+          echo "OK: UUID substitution verified"
+
+      - name: Validate config.txt
+        run: |
+          tmp_boot="$(mktemp -d)"
+          trap 'rm -rf "$tmp_boot"' EXIT
+          mcopy -i dist/images/archlinux-rpi5-aarch64.img@@1048576 "::/config.txt" "$tmp_boot/config.txt"
+          if grep -q 'device_tree_address' "$tmp_boot/config.txt"; then
+            echo "ERROR: invalid device_tree_address in config.txt"
+            exit 1
+          fi
+          echo "OK: config.txt validated"
