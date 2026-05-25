@@ -248,7 +248,7 @@ bootstrap::mkinitcpio_conf() {
     sed -i 's/^MODULES=(.*/MODULES=(vfat)/' "$target/etc/mkinitcpio.conf"
     sed -i 's/^COMPRESSION="zstd"/#COMPRESSION="zstd"/' "$target/etc/mkinitcpio.conf"
     if [[ -n "${BUILD_MKINITCPIO_COMPRESSION:-}" ]]; then
-        sed -i "s/^#COMPRESSION=.*/COMPRESSION="$BUILD_MKINITCPIO_COMPRESSION"/" "$target/etc/mkinitcpio.conf"
+        sed -i "s/^#COMPRESSION=.*/COMPRESSION=${BUILD_MKINITCPIO_COMPRESSION}/" "$target/etc/mkinitcpio.conf"
         log::info "mkinitcpio compression: $BUILD_MKINITCPIO_COMPRESSION"
     fi
     log::info "Обновлен $target/etc/mkinitcpio.conf..."

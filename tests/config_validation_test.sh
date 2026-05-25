@@ -29,7 +29,6 @@ set_valid_config() {
     BUILD_MOUNT_ROOT="/mnt/arch_build"
     BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"
     BUILD_USER_NAME="dryam"
-    BUILD_USER_PASSWORD="dryam"
     BUILD_SSH_USER="$BUILD_USER_NAME"
     BUILD_ROOT_PASSWORD="root"
     BUILD_HOSTNAME="arch-rpi5"
