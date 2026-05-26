@@ -1,4 +1,26 @@
 {
+  "imager": {
+    "latest_version": "2.0.7",
+    "url": "https://www.raspberrypi.com/software/",
+    "devices": [
+      {
+        "name": "Raspberry Pi 5",
+        "tags": ["pi5-64bit"],
+        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_5.png",
+        "description": "Raspberry Pi 5, 500 / 500+, and Compute Module 5",
+        "matching_type": "exclusive",
+        "capabilities": []
+      },
+      {
+        "name": "No filtering",
+        "tags": [],
+        "default": false,
+        "description": "Show every possible image",
+        "matching_type": "inclusive",
+        "capabilities": []
+      }
+    ]
+  },
   "os_list": [
     {
       "name": "Arch Linux ARM for Raspberry Pi 5",
@@ -10,9 +32,7 @@
       "image_download_sha256": "__DOWNLOAD_SHA256__",
       "release_date": "2026-05-26",
       "init_format": "none",
-      "devices": [
-        "pi5-64bit"
-      ],
+      "devices": ["pi5-64bit"],
       "icon": "https://archlinux.org/static/logos/archlinux-logo-dark-90dpi.36f5.png",
       "website": "https://github.com/dryamovvv/archlinux-rpi5-aarch64"
     }
