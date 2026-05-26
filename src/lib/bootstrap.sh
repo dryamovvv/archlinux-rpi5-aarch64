@@ -147,26 +147,24 @@ bootstrap::systemd_enable_custom_unit() {
 
 bootstrap::systemd_firstboot() {
     local target="$1"
-    local timezone="$2"
-    local root_password="$3"
-    local hostname="$4"
 
     log::assert_not_empty "$target" "точка монтирования"
-    log::assert_not_empty "$timezone" "часовой пояс"
-    log::assert_not_empty "$root_password" "пароль root"
-    log::assert_not_empty "$hostname" "hostname"
 
     log::info "Применяем systemd-firstboot..."
-    systemd-firstboot \
-      --root="$target" \
-      --force \
-      --locale=en_US.UTF-8 \
-      --keymap=us \
-      --timezone="$timezone" \
-      --hostname="$hostname" \
-      --root-password="$root_password" \
-      --root-shell=/bin/bash \
-      --setup-machine-id
+    local args=(
+        --root="$target"
+        --force
+        --locale="${BUILD_LOCALE:-en_US.UTF-8}"
+        --keymap="${BUILD_KEYMAP:-us}"
+        --root-shell=/bin/bash
+        --setup-machine-id
+    )
+
+    [[ -n "${BUILD_HOSTNAME:-}" ]] && args+=(--hostname="$BUILD_HOSTNAME")
+    [[ -n "${BUILD_TIMEZONE:-}" ]] && args+=(--timezone="$BUILD_TIMEZONE")
+    [[ -n "${BUILD_ROOT_PASSWORD:-}" ]] && args+=(--root-password="$BUILD_ROOT_PASSWORD")
+
+    systemd-firstboot "${args[@]}"
 }
 
 bootstrap::firstboot_service() {
@@ -182,19 +180,16 @@ bootstrap::firstboot_service() {
 set -euo pipefail
 
 if ! id -u "$user_name" >/dev/null 2>&1; then
-      useradd -m -G wheel "$user_name"
-      # No preset password — user must change on first login
-      chage -d 0 "$user_name"
+    useradd -m -G wheel "$user_name"
+    chage -d 0 "$user_name"
 fi
-
-locale-gen >/dev/null
-
-if command -v systemd-repart >/dev/null 2>&1; then
-      systemd-repart --dry-run=no
-fi
-systemctl restart systemd-growfs-root.service || true
 FIRSTBOOTSCRIPT
     chmod 0755 "$target/usr/local/lib/rpi5-archlinux/firstboot.sh"
+
+    # systemd-firstboot drop-in for interactive tty prompts
+    mkdir -p "$target/etc/systemd/system/systemd-firstboot.service.d"
+    assets::write "systemd/systemd-firstboot.service.d/prompt.conf" \
+        "$target/etc/systemd/system/systemd-firstboot.service.d/prompt.conf"
 
     assets::write "systemd/rpi5-firstboot.service" "$target/etc/systemd/system/rpi5-firstboot.service"
 

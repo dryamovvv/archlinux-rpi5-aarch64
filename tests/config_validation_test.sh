@@ -30,9 +30,6 @@ set_valid_config() {
     BUILD_MOUNT_BOOT="$BUILD_MOUNT_ROOT/boot"
     BUILD_USER_NAME="dryam"
     BUILD_SSH_USER="$BUILD_USER_NAME"
-    BUILD_ROOT_PASSWORD="root"
-    BUILD_HOSTNAME="arch-rpi5"
-    BUILD_TIMEZONE="Europe/Moscow"
     BUILD_MKINITCPIO_HOOKS="HOOKS=(base systemd filesystems fsck)"
     BUILD_MODULES=("disk_image")
     BUILD_PACKAGES=("base")
@@ -42,11 +39,11 @@ expect_config_failure() {
     local message="$1"
 
     if (config::validate) >/tmp/rpi5-config-validation.out 2>&1; then
-      fail "$message"
+    fail "$message"
     fi
 
     grep -q "Required build config value is empty" /tmp/rpi5-config-validation.out ||
-      fail "$message must explain missing required value"
+    fail "$message must explain missing required value"
 }
 
 set_valid_config
@@ -57,10 +54,6 @@ unset BUILD_IMAGE_SHRINK_MARGIN
 config::validate
 [[ "$BUILD_IMAGE_SHRINK_MARGIN" == "256M" ]] ||
     fail "config validation must default missing image shrink margin"
-
-set_valid_config
-BUILD_ROOT_PASSWORD=""
-expect_config_failure "config validation must reject empty root password"
 
 set_valid_config
 # BUILD_USER_PASSWORD is optional — user changes password on first login via chage -d 0

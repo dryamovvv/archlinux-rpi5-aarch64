@@ -5,8 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 fail() {
-    printf 'FAIL: %s\n' "$1" >&2
-    exit 1
+  printf 'FAIL: %s\n' "$1" >&2
+  exit 1
 }
 
 [[ ! -f "$repo_root/scripts/main.sh" ]] || fail "legacy scripts/main.sh should be removed"
@@ -34,28 +34,28 @@ grep -q '^build\.conf$' "$repo_root/.gitignore" || fail ".gitignore must exclude
 [[ -f "$repo_root/src/lib/modules/qemu_boot_config.sh" ]] || fail "missing qemu boot config module"
 [[ -f "$repo_root/src/lib/modules/image_shrink.sh" ]] || fail "missing image shrink module"
 grep -q 'Complete first boot provisioning' "$repo_root/src/conf/systemd/rpi5-firstboot.service" ||
-    fail "firstboot service asset must be non-empty and active"
-grep -q 'systemd-repart --dry-run=no' "$repo_root/src/lib/bootstrap.sh" ||
-    fail "firstboot provisioning must grow the root partition"
-grep -q 'systemd-growfs-root.service' "$repo_root/src/lib/bootstrap.sh" ||
-    fail "firstboot provisioning must grow the root filesystem"
+  fail "firstboot service asset must be non-empty and active"
+grep -q 'systemd-repart.service' "$repo_root/src/lib/modules/services.sh" ||
+  fail "services must enable native systemd-repart for root growth"
+grep -q 'systemd-growfs-root.service' "$repo_root/src/lib/modules/services.sh" ||
+  fail "firstboot provisioning must grow the root filesystem"
 if grep -Fq "bootstrap::zram \"\$BUILD_MOUNT_ROOT\"" "$repo_root/src/lib/modules/services.sh"; then
-    fail "services must not enable zram"
+  fail "services must not enable zram"
 fi
 if grep -q '"zram-generator"' "$repo_root/build.conf.example"; then
-    fail "default package list must not install zram-generator"
+  fail "default package list must not install zram-generator"
 fi
 if grep -q '"zram-generator"' "$repo_root/src/lib/bootstrap.sh"; then
-    fail "bootstrap fallback package list must not install zram-generator"
+  fail "bootstrap fallback package list must not install zram-generator"
 fi
 if grep -q 'bootstrap::zram()' "$repo_root/src/lib/bootstrap.sh"; then
-    fail "bootstrap must not keep zram setup helper"
+  fail "bootstrap must not keep zram setup helper"
 fi
 if grep -q 'bootstrap::swap()' "$repo_root/src/lib/bootstrap.sh"; then
-    fail "bootstrap must not keep swapfile setup helper"
+  fail "bootstrap must not keep swapfile setup helper"
 fi
 grep -Fq "bootstrap::disable_swap \"\$BUILD_MOUNT_ROOT\"" "$repo_root/src/lib/modules/services.sh" ||
-    fail "services must disable stale swap configuration"
+  fail "services must disable stale swap configuration"
 [[ -f "$repo_root/.gitignore" ]] || fail "missing .gitignore"
 grep -q '^archlinux-rpi5-aarch64\.img$' "$repo_root/.gitignore" || fail ".gitignore must exclude raw image artifacts"
 grep -q '^archlinux-rpi5-aarch64\.img\.xz$' "$repo_root/.gitignore" || fail ".gitignore must exclude compressed release image artifacts"
@@ -70,9 +70,9 @@ grep -q 'list-steps' "$repo_root/README.md" || fail "README must mention list-st
 grep -q 'src/conf/boot/' "$repo_root/README.md" || fail "README must mention boot configs"
 grep -q 'embedded' "$repo_root/README.md" || fail "README must mention packaged embedded configs"
 grep -q -- '--config ./my-build.conf build' "$repo_root/README.md" ||
-    fail "README must document explicit config override"
+  fail "README must document explicit config override"
 grep -q 'cp build.conf.example build.conf' "$repo_root/README.md" ||
-    fail "README must document creating local build.conf"
+  fail "README must document creating local build.conf"
 grep -q 'src/main.sh' "$repo_root/AGENTS.md" || fail "AGENTS must reference src/main.sh"
 grep -q 'dist/bin/rpi5-archlinux-image' "$repo_root/AGENTS.md" || fail "AGENTS must reference dist/bin/rpi5-archlinux-image"
 grep -q '.github/workflows' "$repo_root/README.md" || fail "README must mention GitHub Actions"
