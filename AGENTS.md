@@ -99,3 +99,5 @@ git branch -f dev main && git push origin dev --force
 5. Попробовать SSH: `ssh -p 2222 dryam@localhost` (пароль пустой, сменит при входе)
 6. `systemctl is-system-running` → `running`
 7. `systemctl list-units --state=failed` → пусто
+
+**Важно:** всегда проверяй свои изменения через QEMU перед коммитом. Таски в `.zed/tasks.json` автоматизируют цепочку, но перед пушем убедись что они отработали. Если таски сломаны — почини их.

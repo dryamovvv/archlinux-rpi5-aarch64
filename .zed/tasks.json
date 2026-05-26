@@ -1,0 +1,67 @@
+[
+  {
+    "label": "package: rebuild builder",
+    "command": "cp build.conf.example build.conf && ./scripts/package.sh",
+    "hide": "on_success"
+  },
+  {
+    "label": "test: syntax check",
+    "command": "bash -n scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modules/*.sh tests/*.sh && echo SYNTAX_OK",
+    "hide": "on_success"
+  },
+  {
+    "label": "test: shellcheck",
+    "command": "shellcheck scripts/*.sh src/main.sh src/lib/*.sh src/lib/core/*.sh src/lib/modules/*.sh tests/*.sh",
+    "hide": "on_success"
+  },
+  {
+    "label": "test: run all tests",
+    "command": "for t in tests/*.sh; do bash $t >/dev/null 2>&1 && echo PASS: $t || echo FAIL: $t; done",
+    "hide": "never"
+  },
+  {
+    "label": "test: validate config",
+    "command": "./dist/bin/rpi5-archlinux-image validate",
+    "hide": "on_success"
+  },
+  {
+    "label": "qemu: sanity check",
+    "command": "cp build.conf.example build.conf && ./scripts/package.sh && echo TESTS && for t in tests/*.sh; do bash $t >/dev/null 2>&1 || echo FAIL: $t; done && ./dist/bin/rpi5-archlinux-image validate && echo SANITY_OK",
+    "hide": "never"
+  },
+  {
+    "label": "qemu: build image",
+    "command": "rm -f dist/images/archlinux-qemu-aarch64.img && ./dist/bin/rpi5-archlinux-image build-qemu 2>&1 | tee build-qemu.log",
+    "hide": "never"
+  },
+  {
+    "label": "qemu: run",
+    "command": "sudo pkill -f qemu-system 2>/dev/null; sleep 1; ./dist/bin/rpi5-archlinux-image qemu-run 2>&1 | tee qemu-boot.log",
+    "hide": "never"
+  },
+  {
+    "label": "qemu: verify boot log",
+    "command": "echo BUILD_ERRORS=$(grep -c '\\[FAIL\\]' build-qemu.log) && grep 'Finished Complete first boot' qemu-boot.log && echo BOOT_ERRORS=$(grep -c 'FAILED' qemu-boot.log)",
+    "hide": "never"
+  },
+  {
+    "label": "qemu: stop",
+    "command": "sudo pkill -f qemu-system",
+    "hide": "on_success"
+  },
+  {
+    "label": "full cycle: package → qemu → verify",
+    "command": "cp build.conf.example build.conf && ./scripts/package.sh && rm -f dist/images/archlinux-qemu-aarch64.img && echo BUILDING && ./dist/bin/rpi5-archlinux-image build-qemu 2>&1 | tee build-qemu.log && sudo pkill -f qemu-system 2>/dev/null; sleep 1; ./dist/bin/rpi5-archlinux-image qemu-run 2>&1 | tee qemu-boot.log &",
+    "hide": "never"
+  },
+  {
+    "label": "git: commit and push",
+    "command": "git add -A && GIT_EDITOR=true git commit && git push origin main",
+    "hide": "never"
+  },
+  {
+    "label": "git: push to dev",
+    "command": "git branch -f dev main && git push origin dev --force",
+    "hide": "on_success"
+  }
+]
