@@ -57,6 +57,10 @@ for t in tests/*.sh; do bash "$t" || echo "FAIL: $t"; done
    git checkout main && git merge dev && git tag v0.4.0 && git push origin main --tags
    ```
 
+## /arch_audit
+
+Comprehensive system audit using all MCP tools. Type `/arch_audit` to get a structured report: system overview, health, packages, configs, mirrors, news, orphans, boot logs. Useful after new image releases.
+
 ## CI/CD
 
 - **x86 (всегда):** bash -n + shellcheck + 13 тестов

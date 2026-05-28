@@ -165,3 +165,69 @@ IMAGER_REPO_URL=https://github.com/dryamovvv/archlinux-rpi5-aarch64/releases/lat
 6. Нажмите Write — образ запишется напрямую с GitHub Releases
 
 После записи извлеките SD-карту (или оставьте NVMe) и перезагрузитесь — система загрузится в Arch Linux ARM.
+
+## opencode Integration
+
+Проект поддерживает работу через [opencode](https://opencode.ai) — AI-агент для командной строки. Конфигурация разделена на три уровня:
+
+### 1. Проектный `AGENTS.md`
+
+Файл [`AGENTS.md`](AGENTS.md) в корне репозитория — основная инструкция для AI. Содержит команды, файловую карту, правила, CI/CD. Автоматически подхватывается opencode при работе в этом каталоге. Дополнительной установки не требует.
+
+### 2. Глобальный `AGENTS.md`
+
+Устанавливается в `~/.config/opencode/AGENTS.md` и работает во всех проектах. Добавляет правила для arch-linux MCP:
+
+```bash
+mkdir -p ~/.config/opencode
+# скопировать содержимое секции <!-- arch-linux --> из проектного AGENTS.md
+# в ~/.config/opencode/AGENTS.md
+```
+
+Содержимое: список MCP-инструментов (`get_system_info`, `install_package_secure`, `check_updates_dry_run` и др.), категории (система, пакеты, AUR, конфиги, зеркала), примеры вызова и правила безопасности.
+
+### 3. Skills (`~/.agents/skills/`)
+
+Скиллы — это markdown-файлы с инструкциями для конкретных сценариев. Устанавливаются в `~/.agents/skills/<name>/SKILL.md`:
+
+```bash
+mkdir -p ~/.agents/skills/arch-linux-mcp ~/.agents/skills/arch-audit
+```
+
+**arch-linux-mcp** — справочник по всем MCP-инструментам. Активируется при упоминании RPi5, Arch, pacman, AUR.
+
+**arch-audit** — скилл-команда `/arch_audit`. При запуске выполняет все MCP-инструменты параллельно и собирает структурированный отчёт: система, здоровье, пакеты, конфиги, зеркала, новости, orphan-пакеты, boot logs. Полезен после установки нового образа для проверки здоровья RPi5.
+
+Содержимое скиллов можно взять из примеров в [`docs/arch-mcp.md`](docs/arch-mcp.md) (arch-linux-mcp) и [`docs/homectl.md`](docs/homectl.md) (шаблон для arch-audit) или скопировать из установленных в `~/.agents/skills/`.
+
+### 4. MCP-сервер (`opencode.json`)
+
+Для удалённого управления RPi5 используется HTTP-форк arch-ops-server (`dryamovvv/arch-mcp`) с Bearer-аутентификацией. Конфигурация:
+
+```json
+{
+  "mcp": {
+    "arch-linux": {
+      "type": "remote",
+      "url": "http://<rpi5-ip>:8080/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {file:~/.config/opencode/api-key}"
+      },
+      "oauth": false,
+      "timeout": 30000
+    }
+  }
+}
+```
+
+Устанавливается либо в `~/.config/opencode/opencode.json` (глобально), либо в `opencode.json` корня проекта (локально). API-ключ хранится в `~/.config/opencode/api-key`.
+
+На RPi5 сервер работает как systemd-сервис `arch-ops-mcp.service`. Установка на новый образ:
+
+```bash
+uv tool install --with starlette --with "uvicorn[standard]" \
+  'arch-ops-server @ git+https://github.com/dryamovvv/arch-mcp.git@master'
+```
+
+Подробнее — в [`docs/arch-mcp.md`](docs/arch-mcp.md).
