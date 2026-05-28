@@ -97,6 +97,8 @@ BUILD_PACKAGES=(
     "pacman-contrib"
     # ZRAM swap compression
     "zram-generator"
+    # MCP server (uvx arch-ops-server) for remote AI diagnostics
+    "uv"
 )
 
 # EEPROM update channel: "default" (stable) or "latest" (newer, +performance)
@@ -147,4 +149,6 @@ BUILD_QEMU_PACKAGES=(
     "snap-pac"
     # ZRAM swap compression
     "zram-generator"
+    # MCP server (uvx arch-ops-server) for remote AI diagnostics
+    "uv"
 )
