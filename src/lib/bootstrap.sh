@@ -481,11 +481,14 @@ if [[ -z "$ROLLBACK_NUM" ]]; then
 fi
 
 ROOT_DEV="$(findmnt -n -o SOURCE /)"
+ROOT_DEV="${ROOT_DEV%%[*}"
 
 echo "==> Snapshot #$ROLLBACK_NUM will replace the current @ subvolume."
 echo "==> WARNING: All changes since the snapshot will be lost!"
 read -rp "Continue? [y/N] " confirm
 [[ "$confirm" == "y" || "$confirm" == "Y" ]] || { echo "Aborted."; exit 0; }
+
+trap 'umount /tmp/btrfs_top 2>/dev/null; rmdir /tmp/btrfs_top 2>/dev/null; rmdir /tmp/btrfs_new 2>/dev/null' EXIT
 
 echo "==> Mounting top-level subvolume..."
 mkdir -p /tmp/btrfs_top
@@ -494,10 +497,17 @@ mount -o subvolid=5 "$ROOT_DEV" /tmp/btrfs_top
 SNAP_SUBVOL="/tmp/btrfs_top/@snapshots/$ROLLBACK_NUM/snapshot"
 if [[ ! -d "$SNAP_SUBVOL" ]]; then
     echo "ERROR: Snapshot $ROLLBACK_NUM not found"
-    umount /tmp/btrfs_top
-    rmdir /tmp/btrfs_top
     exit 1
 fi
+
+echo "==> Saving snapper config from current @..."
+mkdir -p /tmp/btrfs_new
+mount -o subvol=@ "$ROOT_DEV" /tmp/btrfs_new
+SNAPPER_ROOT=""
+if [[ -f /tmp/btrfs_new/etc/snapper/configs/root ]]; then
+    SNAPPER_ROOT="$(cat /tmp/btrfs_new/etc/snapper/configs/root)"
+fi
+umount /tmp/btrfs_new
 
 echo "==> Moving current @ to @.old..."
 mv /tmp/btrfs_top/@ /tmp/btrfs_top/@.old
@@ -505,12 +515,19 @@ mv /tmp/btrfs_top/@ /tmp/btrfs_top/@.old
 echo "==> Creating read-write snapshot of #$ROLLBACK_NUM as new @..."
 btrfs subvolume snapshot "$SNAP_SUBVOL" /tmp/btrfs_top/@
 
-umount /tmp/btrfs_top
-rmdir /tmp/btrfs_top
+echo "==> Restoring snapper config into new @..."
+mount -o subvol=@ "$ROOT_DEV" /tmp/btrfs_new
+mkdir -p /tmp/btrfs_new/etc/snapper/configs /tmp/btrfs_new/etc/conf.d
+if [[ -n "$SNAPPER_ROOT" ]]; then
+    cat >/tmp/btrfs_new/etc/snapper/configs/root <<<"$SNAPPER_ROOT"
+fi
+sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root"/' /tmp/btrfs_new/etc/conf.d/snapper 2>/dev/null || \
+    echo 'SNAPPER_CONFIGS="root"' >/tmp/btrfs_new/etc/conf.d/snapper
+umount /tmp/btrfs_new
 
-echo ""
 echo "==> Rollback complete. Reboot to use the restored system."
-echo "    Old root preserved as @.old — delete manually after reboot."
+echo "    Old root preserved as @.old — delete manually after reboot:"
+echo "      btrfs subvolume delete /@.old"
 echo "    sudo reboot"
 ROLLBACKSCRIPT
     chmod 0755 "$rollback_dir/rollback.sh"
