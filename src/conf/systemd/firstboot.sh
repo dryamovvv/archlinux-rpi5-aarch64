@@ -16,5 +16,5 @@ if [[ -n "$SWAPFILE_SIZE" ]] && command -v btrfs >/dev/null 2>&1 \
     btrfs filesystem mkswapfile --size "$SWAPFILE_SIZE" --uuid clear /swap/swapfile
     grep -q "/swap/swapfile" /etc/fstab 2>/dev/null || \
         echo "/swap/swapfile none swap defaults,pri=1 0 0" >>/etc/fstab
-    swapon /swap/swapfile
+    swapon --fixpgsz /swap/swapfile
 fi
