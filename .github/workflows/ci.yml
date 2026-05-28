@@ -140,3 +140,12 @@ jobs:
             exit 1
           fi
           echo "OK: config.txt validated"
+
+      - name: Compress image
+        run: xz -9 -T0 dist/images/archlinux-rpi5-aarch64.img
+
+      - name: Upload compressed image
+        uses: actions/upload-artifact@v4
+        with:
+          name: archlinux-rpi5-aarch64
+          path: dist/images/archlinux-rpi5-aarch64.img.xz
