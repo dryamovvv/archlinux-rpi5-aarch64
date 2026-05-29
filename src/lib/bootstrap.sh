@@ -227,7 +227,7 @@ bootstrap::firstboot_service() {
     "shell": "/usr/bin/bash",
     "memberOf": [],
     "privileged": {
-        "hashedPassword": [["password", "", {"crypt": {"salted": "$password_hash"}}]]
+        "hashedPassword": ["$password_hash"]
     }
 }
 JSON
