@@ -42,7 +42,7 @@ print(data[0]['userName'] if data else '')" 2>/dev/null)
                 chpasswd -e <<<"${USER_NAME}:$(python3 -c "
 import json
 d = json.load(open('$IDENTITY_FILE'))
-print(d['privileged']['hashedPassword'][0][2]['crypt']['salted'])
+print(d['privileged']['hashedPassword'][0])
 ")"
             else
                 passwd -d "$USER_NAME"
