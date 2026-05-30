@@ -14,7 +14,7 @@ Raspberry Pi 5 Arch Linux image build script.
 - `src/conf/pacman/` — active pacman-конфигурация, embedded в packaged builder и реально используемая `pacstrap`.
 - `src/conf/boot/` — active boot-файлы, embedded в packaged builder и записываемые в boot partition.
 - `src/conf/systemd/` — active systemd unit для first-boot provisioning, embedded в packaged builder и записываемый в root filesystem.
-- `src/conf/firstboot/` — deprecated (deleted); `user.json` is now generated at build time in `bootstrap::firstboot_service()` from `build.conf` variables (see [docs/homectl.md](docs/homectl.md)).
+- `src/conf/firstboot/` — deprecated (deleted); user creation is manual after first boot via root SSH.
 - `docs/skills/` — готовые opencode skills для копирования в `~/.agents/skills/`.
 
 ## Usage
@@ -36,7 +36,7 @@ cp build.conf.example build.conf
 ```bash
 ./dist/bin/rpi5-archlinux-image build-qemu
 ./dist/bin/rpi5-archlinux-image qemu-run
-ssh -p 2222 user@localhost                     # password from BUILD_USER_PASSWORD (default: user)
+ssh -p 2222 root@localhost                     # password from BUILD_ROOT_PASSWORD (default: root)
 curl http://localhost:8080/health              # MCP server (embedded at build time)
 ```
 
@@ -94,13 +94,16 @@ cp build.conf.example build.conf
 
 ## First boot
 
-- User (`user` by default) is created via `homectl --storage=subvolume` (btrfs subvolume inside `@home`). Password is pre-hashed from `BUILD_USER_PASSWORD` in `build.conf`; the system forces a password change on first login. If `BUILD_USER_PASSWORD` is unset, an interactive wizard runs on TTY, or a `useradd` fallback on headless systems.
-- User home is a separate btrfs subvolume `/home/user.homedir`. Snapper auto-configures timeline snapshots (hourly:5, daily:7, weekly:4, monthly:3).
-- Root password is set from `BUILD_ROOT_PASSWORD` in `build.conf` (default: `root`).
+- Root password is set from `BUILD_ROOT_PASSWORD` in `build.conf` (default: `root`). Root SSH is enabled — log in to create users:
+  ```bash
+  ssh root@<rpi5-ip>
+  useradd -m -G wheel <username>
+  passwd <username>
+  ```
 - The MCP server (`arch-ops-mcp.service`) is embedded at build time. The API key is saved as `<image>.mcp-key` alongside the image file.
 - After boot, the Raspberry Pi is reachable via mDNS:
   ```bash
-  ssh user@arch-rpi5.local
+  ssh root@arch-rpi5.local
   ```
   or by the IP address assigned by DHCP.
 

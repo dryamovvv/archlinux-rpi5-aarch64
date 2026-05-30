@@ -27,27 +27,27 @@ for t in tests/*.sh; do bash "$t" || echo "FAIL: $t"; done
 | Путь | Назначение |
 |------|-----------|
 | `src/main.sh` | CLI entrypoint |
-| `src/lib/bootstrap.sh` | in-target настройка (firstboot, homectl identity, fstab, mkinitcpio, network, sshd, mcp_server) |
+| `src/lib/bootstrap.sh` | in-target настройка (firstboot, fstab, mkinitcpio, network, sshd, mcp_server) |
 | `src/lib/disk.sh` | loop-устройства, разделы, формат |
 | `src/lib/core/` | config, runner, steps, modules, assets |
 | `src/lib/modules/` | build-модули: disk_image, base_system, boot_config, services |
 | `src/conf/boot/` | config.txt, cmdline.txt |
 | `src/conf/systemd/` | firstboot unit, tty drop-in, arch-ops-mcp.service |
 | `src/conf/pacman/` | pacman-arm.conf |
-| `src/conf/firstboot/` | deprecated (deleted); user.json generated at build time |
+| `src/conf/firstboot/` | deprecated (deleted); user creation is manual after first boot |
 | `build.conf.example` | шаблон конфига |
 | `scripts/package.sh` | упаковщик в один файл |
 | `tests/` | 13 shell-тестов |
 | `os_list.json` | для Network Install (RPi Imager) |
 | `docs/arch-mcp.md` | arch-ops-server (встроен в образ, Bearer auth) |
-| `docs/homectl.md` | интеграция homectl + snapper (реализована) |
+| `docs/homectl.md` | попытка интеграции homectl; откат на useradd (v0.5.0) |
 | `docs/skills/` | opencode skills (arch-linux-mcp, arch-audit) для `~/.agents/skills/` |
 
 ## Ключевые правила
 
 1. **Всегда тестируй через QEMU перед коммитом** — см. `docs/qemu-testing.md`
 2. **Не удаляй `config.txt`** — он статический, правки напрямую
-3. **Пароли не хранить в коде** — `BUILD_USER_PASSWORD` хешируется через `openssl passwd -6` и сохраняется как хеш в `user.json`
+3. **Пароли не хранить в коде** — `BUILD_ROOT_PASSWORD` задается в `build.conf`, пользователей создавать вручную после первой загрузки (`useradd -m -G wheel user`)
 4. **Отступ 4 пробела** в .sh, функции с namespace `module::function`
 5. **Пуш в `dev`** триггерит ARM-сборку в CI. **В `main` без разрешения НЕ пушить.**
    ```bash
@@ -97,4 +97,4 @@ Comprehensive system audit using all MCP tools. Type `/arch_audit` to get a stru
 - [configuration.md](docs/configuration.md) — build.conf, config.txt, cmdline.txt
 - [first-boot.md](docs/first-boot.md) — systemd-firstboot + firstboot flow
 - [arch-mcp.md](docs/arch-mcp.md) — форк arch-ops-server (HTTP + Bearer auth)
-- [homectl.md](docs/homectl.md) — интеграция homectl + snapper
+- [homectl.md](docs/homectl.md) — попытка интеграции homectl; откат на useradd (v0.5.0)

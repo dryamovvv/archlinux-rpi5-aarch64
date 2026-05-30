@@ -18,8 +18,8 @@ prepare_image → map_loop → partition_image → create_filesystems → mount_
 | `prepare_base_config` | `base_system.sh` | `/etc/vconsole.conf` |
 | `install_base` | `base_system.sh` | `pacstrap` пакетов из `BUILD_PACKAGES` + `mkinitcpio` + `genfstab` |
 | `configure_boot` | `boot_config.sh` | Запись `cmdline.txt` (UUID-подстановка) и `config.txt` |
-| `configure_system` | `services.sh` | `systemd-firstboot` (locale, keymap, machine-id), `locale-gen`, `firstboot_service` (user.json) |
-| `configure_services` | `services.sh` | network, sshd, fail2ban, systemd-homed, MCP server, snapper (btrfs only), rollback script, ZRAM, Wi-Fi, EEPROM, repart/growfs |
+| `configure_system` | `services.sh` | `systemd-firstboot` (locale, keymap, machine-id), `locale-gen`, `firstboot_service` (swapfile script) |
+| `configure_services` | `services.sh` | network, sshd, fail2ban, MCP server, snapper (btrfs only), rollback script, ZRAM, Wi-Fi, EEPROM, repart/growfs, journal-gatewayd |
 | `validate_boot_files` | `release_validation.sh` | Проверка наличия 5 boot-файлов |
 | `shrink_image` | `image_shrink.sh` | `resize2fs -M` → `truncate` → `sgdisk -e` |
 
