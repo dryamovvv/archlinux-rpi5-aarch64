@@ -333,7 +333,7 @@ bootstrap::sshd() {
 	log::assert_not_empty "$ssh_user" "пользователь ssh"
 
 	log::info "Настраиваем sshd"
-	echo "PermitRootLogin yes" >>"$target/etc/ssh/sshd_config"
+	echo "PermitRootLogin ${BUILD_SSH_PERMIT_ROOT_LOGIN:-yes}" >>"$target/etc/ssh/sshd_config"
 	echo "AllowUsers root $ssh_user $extra_users" >>"$target/etc/ssh/sshd_config"
 	bootstrap::systemd_enable_unit "$target" "sshd.service" "multi-user.target.wants"
 }

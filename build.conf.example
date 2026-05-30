@@ -22,6 +22,8 @@ BUILD_QEMU_ROOTFLAGS="subvol=@"
 BUILD_HOSTNAME="archlinux-develop"
 # SSH пользователь для AllowUsers (root всегда разрешён)
 BUILD_SSH_USER="user"
+# PermitRootLogin: yes (password+key, default) | prohibit-password (key only) | no
+BUILD_SSH_PERMIT_ROOT_LOGIN="yes"
 # Дополнительные пользователи для AllowUsers (через пробел), оставить пустым если не нужны
 BUILD_SSH_ALLOW_USERS=""
 BUILD_ROOT_PASSWORD="root"
