@@ -38,11 +38,15 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.BUILD_TELEGRAM_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.BUILD_TELEGRAM_CHAT_ID }}
           ROOT_SSH_KEY: ${{ secrets.BUILD_ROOT_SSH_KEY }}
+          SSH_PORT: ${{ vars.BUILD_SSH_PORT }}
         run: |
           cp build.conf.example build.conf
           if [[ -n "$ROOT_SSH_KEY" ]]; then
             echo "BUILD_ROOT_SSH_KEY=$ROOT_SSH_KEY" >> build.conf
             echo "BUILD_SSH_PERMIT_ROOT_LOGIN=prohibit-password" >> build.conf
+          fi
+          if [[ -n "$SSH_PORT" ]]; then
+            echo "BUILD_SSH_PORT=$SSH_PORT" >> build.conf
           fi
           if [[ -n "$LUKS_PASSWORD" ]]; then
             echo "BUILD_ENABLE_ENCRYPTION=1" >> build.conf
