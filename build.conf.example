@@ -97,6 +97,7 @@ BUILD_PACKAGES=(
     "btrfs-progs"
     "snapper"
     "snap-pac"
+    "btrbk"
     "inetutils"
     "which"
     "pacman-contrib"
@@ -158,6 +159,7 @@ BUILD_QEMU_PACKAGES=(
     "btrfs-progs"
     "snapper"
     "snap-pac"
+    "btrbk"
     # ZRAM swap compression
     "zram-generator"
     # MCP server (uvx arch-ops-server) for remote AI diagnostics
