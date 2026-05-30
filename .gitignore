@@ -5,3 +5,4 @@ archlinux-rpi5-aarch64.img
 archlinux-rpi5-aarch64.img.xz
 archlinux-rpi5-aarch64.img.xz.sha256
 dist/
+aur/tmp/
