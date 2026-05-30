@@ -54,6 +54,8 @@ BUILD_ENABLE_FSTRIM=1
 BUILD_ENABLE_ENCRYPTION=0
 # LUKS passphrase for disk encryption (required when BUILD_ENABLE_ENCRYPTION=1)
 BUILD_LUKS_PASSWORD=""
+# LUKS unlock mode: "keyboard" (local console, default) or "ssh" (remote via tinysshd in initramfs)
+BUILD_LUKS_UNLOCK_MODE="keyboard"
 # URL to pre-built mkinitcpio-systemd-extras AUR package (*.pkg.tar.zst)
 BUILD_AUR_PKG_URL=""
 

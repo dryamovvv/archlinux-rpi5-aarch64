@@ -116,7 +116,7 @@ bootstrap::generate_btrfs_fstab() {
 	log::info "Генерация /etc/fstab для btrfs subvolume layout..."
 	cat <<EOF >"$target/etc/fstab"
 # /etc/fstab — btrfs subvolume layout
-UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,subvol=@       0 0
+UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90,subvol=@       0 0
 UUID=$root_uuid /home      btrfs rw,noatime,compress=zstd,subvol=@home    0 0
 UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=@snapshots            0 0
 UUID=$root_uuid /var/log   btrfs rw,noatime,compress=zstd,subvol=@var_log 0 0
@@ -226,10 +226,15 @@ bootstrap::cmdline_txt() {
 	assets::write "boot/cmdline.txt" "$target/cmdline.txt"
 
 	if [[ -n "${BUILD_ROOT_UUID:-}" ]]; then
+		# LUKS keyboard mode: rd.luks.name only (no ip=dhcp)
 		if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]] && [[ -n "${LUKS_UUID:-}" ]]; then
 			sed -i "1s/__ROOT_UUID__/$BUILD_ROOT_UUID/" "$target/cmdline.txt"
-			sed -i "1s/^/rd.luks.name=$LUKS_UUID=cryptroot ip=dhcp /" "$target/cmdline.txt"
-			log::info "cmdline.txt: rd.luks.name=$LUKS_UUID=cryptroot root=UUID=$BUILD_ROOT_UUID"
+			if [[ "${BUILD_LUKS_UNLOCK_MODE:-keyboard}" == "ssh" ]]; then
+				sed -i "1s/^/rd.luks.name=$LUKS_UUID=cryptroot ip=dhcp /" "$target/cmdline.txt"
+			else
+				sed -i "1s/^/rd.luks.name=$LUKS_UUID=cryptroot /" "$target/cmdline.txt"
+			fi
+			log::info "cmdline.txt: rd.luks.name=$LUKS_UUID=cryptroot root=UUID=$BUILD_ROOT_UUID ($BUILD_LUKS_UNLOCK_MODE mode)"
 		else
 			sed -i "1s/__ROOT_UUID__/$BUILD_ROOT_UUID/" "$target/cmdline.txt"
 			log::info "cmdline.txt: root=UUID=$BUILD_ROOT_UUID"
@@ -280,12 +285,16 @@ bootstrap::mkinitcpio_conf() {
 		modules="vfat btrfs"
 	fi
 
-	# LUKS: insert sd-encrypt before filesystems, sd-network + sd-tinyssh before sd-encrypt
+	# LUKS: sd-encrypt before filesystems. ssh mode also adds sd-network + sd-tinyssh
 	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
 		modules="$modules dm_crypt"
 		new_hooks="${new_hooks//filesystems /sd-encrypt filesystems }"
-		new_hooks="${new_hooks//sd-encrypt /sd-network sd-tinyssh sd-encrypt }"
-		log::info "mkinitcpio: LUKS hooks (sd-network, sd-tinyssh, sd-encrypt, dm_crypt)"
+		if [[ "${BUILD_LUKS_UNLOCK_MODE:-keyboard}" == "ssh" ]]; then
+			new_hooks="${new_hooks//sd-encrypt /sd-network sd-tinyssh sd-encrypt }"
+			log::info "mkinitcpio: LUKS hooks (sd-network, sd-tinyssh, sd-encrypt, dm_crypt)"
+		else
+			log::info "mkinitcpio: LUKS hooks (sd-encrypt, dm_crypt) — keyboard mode"
+		fi
 	fi
 
 	sed -i "s/^MODULES=(.*/MODULES=($modules)/" "$target/etc/mkinitcpio.conf"
@@ -623,6 +632,13 @@ EOF
 bootstrap::luks_initramfs() {
 	local target="$1"
 	log::assert_not_empty "$target" "точка монтирования"
+
+	local unlock_mode="${BUILD_LUKS_UNLOCK_MODE:-keyboard}"
+
+	if [[ "$unlock_mode" == "keyboard" ]]; then
+		log::info "LUKS: keyboard mode — skipping tinyssh (no remote unlock)"
+		return 0
+	fi
 
 	log::info "Настройка LUKS remote SSH unlock (sd-tinyssh)..."
 
