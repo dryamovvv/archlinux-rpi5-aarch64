@@ -361,7 +361,19 @@ bootstrap::sshd() {
 	log::assert_not_empty "$target" "точка монтирования"
 
 	log::info "Настраиваем sshd"
+
+	if [[ -n "${BUILD_SSH_PORT:-}" ]]; then
+		echo "Port ${BUILD_SSH_PORT}" >>"$target/etc/ssh/sshd_config"
+		log::info "SSH port: ${BUILD_SSH_PORT}"
+	fi
+
 	echo "PermitRootLogin ${BUILD_SSH_PERMIT_ROOT_LOGIN:-yes}" >>"$target/etc/ssh/sshd_config"
+	echo "KbdInteractiveAuthentication yes" >>"$target/etc/ssh/sshd_config"
+
+	if [[ -f "$target/etc/ssh/sshd_config.d/99-archlinux.conf" ]]; then
+		sed -i 's/KbdInteractiveAuthentication no/KbdInteractiveAuthentication yes/' \
+			"$target/etc/ssh/sshd_config.d/99-archlinux.conf"
+	fi
 
 	local allow_users="root"
 	[[ -n "$ssh_user" ]] && allow_users+=" $ssh_user"
@@ -597,11 +609,20 @@ if [[ -n "$SNAPPER_ROOT" ]]; then
 fi
 sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root"/' /tmp/btrfs_new/etc/conf.d/snapper 2>/dev/null || \
     echo 'SNAPPER_CONFIGS="root"' >/tmp/btrfs_new/etc/conf.d/snapper
+
+echo "==> Fixing SSH config for password auth..."
+sed -i 's/KbdInteractiveAuthentication no/KbdInteractiveAuthentication yes/' \
+    /tmp/btrfs_new/etc/ssh/sshd_config.d/99-archlinux.conf 2>/dev/null || true
+grep -q '^KbdInteractiveAuthentication yes' /tmp/btrfs_new/etc/ssh/sshd_config 2>/dev/null || \
+    echo 'KbdInteractiveAuthentication yes' >>/tmp/btrfs_new/etc/ssh/sshd_config
+grep -q '^PermitRootLogin' /tmp/btrfs_new/etc/ssh/sshd_config 2>/dev/null || \
+    echo 'PermitRootLogin yes' >>/tmp/btrfs_new/etc/ssh/sshd_config
+
 umount /tmp/btrfs_new
 
 echo "==> Rollback complete. Reboot to use the restored system."
 echo "    Old root preserved as @.old — delete manually after reboot:"
-echo "      btrfs subvolume delete /@.old"
+echo "      mount -o subvolid=5 /dev/root /tmp/btrfs_top && btrfs subvolume delete /tmp/btrfs_top/@.old"
 echo "    sudo reboot"
 ROLLBACKSCRIPT
 	chmod 0755 "$rollback_dir/rollback.sh"
@@ -613,8 +634,10 @@ bootstrap::mcp_server() {
 	log::assert_not_empty "$target" "точка монтирования"
 
 	log::info "Installing arch-ops-server (MCP) in chroot..."
-	arch-chroot "$target" uv tool install --from "git+https://github.com/dryamovvv/arch-mcp" "arch-ops-server[http]" 2>&1 ||
-		log::warn "MCP server installation encountered issues"
+	if ! arch-chroot "$target" uv tool install --from "git+https://github.com/dryamovvv/arch-mcp" "arch-ops-server[http]" 2>&1; then
+		log::warn "MCP server installation failed — skipping service enablement (no network?)"
+		return 0
+	fi
 
 	local api_key
 	api_key=$(python3 -c "import uuid; print(uuid.uuid4())")

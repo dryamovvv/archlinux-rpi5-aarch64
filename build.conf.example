@@ -28,6 +28,8 @@ BUILD_SSH_PERMIT_ROOT_LOGIN="yes"
 BUILD_ROOT_SSH_KEY=""
 # Дополнительные пользователи для AllowUsers (через пробел), оставить пустым если не нужны
 BUILD_SSH_ALLOW_USERS=""
+# SSH port (пусто = default 22)
+BUILD_SSH_PORT=""
 BUILD_ROOT_PASSWORD="root"
 BUILD_TIMEZONE="Europe/Moscow"
 BUILD_MKINITCPIO_HOOKS="HOOKS=(base systemd autodetect modconf kms keyboard keymap sd-vconsole block filesystems fsck)"
