@@ -226,8 +226,14 @@ bootstrap::cmdline_txt() {
 	assets::write "boot/cmdline.txt" "$target/cmdline.txt"
 
 	if [[ -n "${BUILD_ROOT_UUID:-}" ]]; then
-		sed -i "s/__ROOT_UUID__/$BUILD_ROOT_UUID/" "$target/cmdline.txt"
-		log::info "cmdline.txt: root=UUID=$BUILD_ROOT_UUID"
+		if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]] && [[ -n "${LUKS_UUID:-}" ]]; then
+			sed -i "s/__ROOT_UUID__/$BUILD_ROOT_UUID/" "$target/cmdline.txt"
+			sed -i "s/^/rd.luks.name=$LUKS_UUID=cryptroot ip=dhcp /" "$target/cmdline.txt"
+			log::info "cmdline.txt: rd.luks.name=$LUKS_UUID=cryptroot root=UUID=$BUILD_ROOT_UUID"
+		else
+			sed -i "s/__ROOT_UUID__/$BUILD_ROOT_UUID/" "$target/cmdline.txt"
+			log::info "cmdline.txt: root=UUID=$BUILD_ROOT_UUID"
+		fi
 	else
 		log::warn "BUILD_ROOT_UUID не задан — cmdline.txt содержит плейсхолдер __ROOT_UUID__"
 	fi
@@ -266,14 +272,23 @@ bootstrap::mkinitcpio_conf() {
 	log::assert_not_empty "$new_hooks" "новая строка HOOKS"
 	log::info "Обновляем $target/etc/mkinitcpio.conf..."
 
+	local modules="vfat"
+
 	if [[ "${BUILD_FILESYSTEM:-ext4}" == "btrfs" ]]; then
 		new_hooks="${new_hooks//fsck /}"
 		new_hooks="${new_hooks// fsck)/)}"
-		sed -i 's/^MODULES=(.*/MODULES=(vfat btrfs)/' "$target/etc/mkinitcpio.conf"
-	else
-		sed -i 's/^MODULES=(.*/MODULES=(vfat)/' "$target/etc/mkinitcpio.conf"
+		modules="vfat btrfs"
 	fi
 
+	# LUKS: insert sd-encrypt before filesystems, sd-network + sd-tinyssh before sd-encrypt
+	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
+		modules="$modules dm_crypt"
+		new_hooks="${new_hooks//filesystems /sd-encrypt filesystems }"
+		new_hooks="${new_hooks//sd-encrypt /sd-network sd-tinyssh sd-encrypt }"
+		log::info "mkinitcpio: LUKS hooks (sd-network, sd-tinyssh, sd-encrypt, dm_crypt)"
+	fi
+
+	sed -i "s/^MODULES=(.*/MODULES=($modules)/" "$target/etc/mkinitcpio.conf"
 	sed -i "s/^HOOKS=(.*/$new_hooks/" "$target/etc/mkinitcpio.conf"
 	sed -i 's/^COMPRESSION="zstd"/#COMPRESSION="zstd"/' "$target/etc/mkinitcpio.conf"
 	if [[ -n "${BUILD_MKINITCPIO_COMPRESSION:-}" ]]; then
@@ -412,8 +427,12 @@ bootstrap::btrfs_setup_snapper() {
 
 	local snap_mount="$target/.snapshots"
 	local root_part=""
-	disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
-	root_part="$RESOLVED_PARTITION_PATH"
+	if [[ -n "${CRYPTROOT_DEVICE:-}" ]]; then
+		root_part="/dev/mapper/cryptroot"
+	else
+		disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
+		root_part="$RESOLVED_PARTITION_PATH"
+	fi
 
 	if mountpoint -q "$snap_mount" 2>/dev/null; then
 		umount "$snap_mount"
@@ -599,4 +618,31 @@ EOF
 	bootstrap::systemd_enable_custom_unit "$target" "arch-ops-mcp.service" "multi-user.target.wants"
 
 	log::info "arch-ops-server (MCP) configured"
+}
+
+bootstrap::luks_initramfs() {
+	local target="$1"
+	log::assert_not_empty "$target" "точка монтирования"
+
+	log::info "Настройка LUKS remote SSH unlock (sd-tinyssh)..."
+
+	arch-chroot "$target" pacman -Sy --noconfirm tinyssh 2>&1 || true
+
+	mkdir -p "$target/etc/tinyssh"
+	if [[ -z "$(ls -A "$target/etc/tinyssh" 2>/dev/null)" ]]; then
+		arch-chroot "$target" tinysshd-makekey "$target/etc/tinyssh/sshkeydir" 2>&1 || true
+	fi
+
+	if [[ -d "$target/root/.ssh" ]]; then
+		cp "$target/root/.ssh/authorized_keys" "$target/etc/tinyssh/root_key" 2>/dev/null || true
+	fi
+
+	local aur_pkg_url="${BUILD_AUR_PKG_URL:-}"
+	if [[ -n "$aur_pkg_url" ]]; then
+		log::info "Downloading pre-built mkinitcpio-systemd-extras..."
+		arch-chroot "$target" bash -c "curl -fL $aur_pkg_url -o /tmp/mkinitcpio-systemd-extras.pkg.tar.zst && pacman -U --noconfirm /tmp/mkinitcpio-systemd-extras.pkg.tar.zst" 2>&1 ||
+			log::warn "mkinitcpio-systemd-extras installation failed — remote SSH unlock may not work"
+	fi
+
+	log::info "LUKS remote unlock configured"
 }

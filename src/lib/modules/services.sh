@@ -39,6 +39,10 @@ services::configure_services() {
 	bootstrap::cpu_boost "$BUILD_MOUNT_ROOT"
 	bootstrap::wifi_regdom "$BUILD_MOUNT_ROOT"
 
+	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
+		bootstrap::luks_initramfs "$BUILD_MOUNT_ROOT"
+	fi
+
 	bootstrap::resize_root "$BUILD_MOUNT_ROOT"
 
 	if [[ "${BUILD_FILESYSTEM:-ext4}" == "btrfs" ]]; then

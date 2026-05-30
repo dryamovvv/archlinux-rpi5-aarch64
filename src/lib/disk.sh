@@ -542,3 +542,40 @@ disk::cleanup() {
 		CURRENT_LOOP_DEV=""
 	fi
 }
+
+disk::luks_format() {
+	local device="$1"
+	local password="$2"
+
+	log::assert_not_empty "$device" "устройство"
+	log::assert_not_empty "$password" "пароль LUKS"
+
+	log::info "Форматирование LUKS-контейнера на $device..."
+	echo -n "$password" | cryptsetup luksFormat --type luks2 "$device" - 2>&1 ||
+		log::die "Не удалось создать LUKS-контейнер"
+	log::success "LUKS-контейнер создан"
+}
+
+disk::luks_open() {
+	local device="$1"
+	local name="$2"
+	local password="$3"
+
+	log::assert_not_empty "$device" "устройство"
+	log::assert_not_empty "$name" "имя mapper"
+
+	log::info "Открытие LUKS-контейнера $device как /dev/mapper/$name..."
+	echo -n "$password" | cryptsetup open "$device" "$name" - 2>&1 ||
+		log::die "Не удалось открыть LUKS-контейнер"
+	log::success "/dev/mapper/$name открыт"
+}
+
+disk::luks_close() {
+	local name="$1"
+
+	log::assert_not_empty "$name" "имя mapper"
+
+	if [[ -e "/dev/mapper/$name" ]]; then
+		cryptsetup close "$name" 2>&1 || log::warn "Не удалось закрыть /dev/mapper/$name"
+	fi
+}

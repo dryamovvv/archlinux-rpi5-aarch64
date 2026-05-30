@@ -30,6 +30,7 @@ disk_image::create_filesystems() {
 	local part_root=""
 	local root_fs="${BUILD_FILESYSTEM:-ext4}"
 	local temp_mount="/tmp/btrfs_temp_subvol"
+	local root_device=""
 
 	disk::resolve_partition_path "$CURRENT_LOOP_DEV" 1
 	part_boot="$RESOLVED_PARTITION_PATH"
@@ -37,15 +38,29 @@ disk_image::create_filesystems() {
 	part_root="$RESOLVED_PARTITION_PATH"
 
 	disk::format_partition "$part_boot" "vfat"
-	disk::format_partition "$part_root" "$root_fs"
 
-	BUILD_ROOT_UUID="$(blkid -s UUID -o value "$part_root")"
+	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
+		disk::luks_format "$part_root" "$BUILD_LUKS_PASSWORD"
+		disk::luks_open "$part_root" "cryptroot" "$BUILD_LUKS_PASSWORD"
+		root_device="/dev/mapper/cryptroot"
+		CRYPTROOT_DEVICE="$root_device"
+		readonly CRYPTROOT_DEVICE
+		LUKS_UUID="$(blkid -s UUID -o value "$part_root")"
+		readonly LUKS_UUID
+		log::info "LUKS container UUID: $LUKS_UUID"
+	else
+		root_device="$part_root"
+	fi
+
+	disk::format_partition "$root_device" "$root_fs"
+
+	BUILD_ROOT_UUID="$(blkid -s UUID -o value "$root_device")"
 	readonly BUILD_ROOT_UUID
 	log::info "Root partition UUID: $BUILD_ROOT_UUID"
 
 	if [[ "$root_fs" == "btrfs" ]]; then
 		mkdir -p "$temp_mount"
-		if mount "$part_root" "$temp_mount"; then
+		if mount "$root_device" "$temp_mount"; then
 			disk::btrfs_subvol_create_all "$temp_mount"
 			umount "$temp_mount"
 		else
@@ -61,8 +76,13 @@ disk_image::mount_filesystems() {
 
 	disk::resolve_partition_path "$CURRENT_LOOP_DEV" 1
 	part_boot="$RESOLVED_PARTITION_PATH"
-	disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
-	part_root="$RESOLVED_PARTITION_PATH"
+
+	if [[ -n "${CRYPTROOT_DEVICE:-}" ]]; then
+		part_root="$CRYPTROOT_DEVICE"
+	else
+		disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
+		part_root="$RESOLVED_PARTITION_PATH"
+	fi
 
 	if [[ "$root_fs" == "btrfs" ]]; then
 		disk::btrfs_mount_subvol_root "$part_root" "$BUILD_MOUNT_ROOT"

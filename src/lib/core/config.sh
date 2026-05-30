@@ -110,4 +110,9 @@ config::validate() {
 	if [[ -n "${BUILD_SWAPFILE_SIZE:-}" ]] && ! [[ "$BUILD_SWAPFILE_SIZE" =~ ^[0-9]+[gGmMkK]?$ ]]; then
 		log::die "BUILD_SWAPFILE_SIZE must be a valid size (e.g. 16g, 2g, 512m)"
 	fi
+
+	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
+		[[ "${BUILD_FILESYSTEM:-ext4}" == "btrfs" ]] || log::die "BUILD_ENABLE_ENCRYPTION requires BUILD_FILESYSTEM=btrfs"
+		[[ -n "${BUILD_LUKS_PASSWORD:-}" ]] || log::die "BUILD_LUKS_PASSWORD is required when BUILD_ENABLE_ENCRYPTION=1"
+	fi
 }

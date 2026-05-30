@@ -44,6 +44,15 @@ BUILD_ZRAM_SIZE="2048"
 BUILD_SWAPFILE_SIZE="16G"
 # Wi-Fi support: 0=disabled, 1=enable wpa_supplicant and remove disable-wifi overlay
 BUILD_ENABLE_WIFI=0
+# Firewall (nftables): 1=enabled (default), 0=disabled — SSH+80+443+estab+lo, rest denied
+BUILD_ENABLE_FIREWALL=1
+# Disk encryption via LUKS (btrfs only): 1=enabled, 0=disabled (default)
+# WARNING: requires pre-built mkinitcpio-systemd-extras AUR package at BUILD_AUR_PKG_URL
+BUILD_ENABLE_ENCRYPTION=0
+# LUKS passphrase for disk encryption (required when BUILD_ENABLE_ENCRYPTION=1)
+BUILD_LUKS_PASSWORD=""
+# URL to pre-built mkinitcpio-systemd-extras AUR package (*.pkg.tar.zst)
+BUILD_AUR_PKG_URL=""
 
 BUILD_MODULES=(
     "disk_image"
