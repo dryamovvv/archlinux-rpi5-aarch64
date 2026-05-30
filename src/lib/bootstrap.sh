@@ -447,9 +447,35 @@ EMPTY_PRE_POST_CLEANUP="yes"
 EMPTY_PRE_POST_MIN_AGE="1800"
 SNAPCONF
 
+	cat >"$target/etc/snapper/configs/home" <<'SNAPCONF'
+SUBVOLUME="/home"
+FSTYPE="btrfs"
+QGROUP=""
+SPACE_LIMIT="0.5"
+FREE_LIMIT="0.2"
+ALLOW_USERS=""
+ALLOW_GROUPS=""
+SYNC_ACL="no"
+BACKGROUND_COMPARISON="yes"
+NUMBER_CLEANUP="yes"
+NUMBER_MIN_AGE="1800"
+NUMBER_LIMIT="50"
+NUMBER_LIMIT_IMPORTANT="10"
+TIMELINE_CREATE="yes"
+TIMELINE_CLEANUP="yes"
+TIMELINE_MIN_AGE="1800"
+TIMELINE_LIMIT_HOURLY="3"
+TIMELINE_LIMIT_DAILY="7"
+TIMELINE_LIMIT_WEEKLY="4"
+TIMELINE_LIMIT_MONTHLY="3"
+TIMELINE_LIMIT_YEARLY="2"
+EMPTY_PRE_POST_CLEANUP="yes"
+EMPTY_PRE_POST_MIN_AGE="1800"
+SNAPCONF
+
 	# Register config in /etc/conf.d/snapper (snapper create-config does this)
 	if [[ -f "$target/etc/conf.d/snapper" ]]; then
-		sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root"/' "$target/etc/conf.d/snapper"
+		sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root home"/' "$target/etc/conf.d/snapper"
 	fi
 
 	if btrfs subvolume delete "$target/.snapshots" >/dev/null 2>&1; then
