@@ -61,7 +61,7 @@ bootstrap::install_base() {
 		pacman_conf="$(assets::materialize "pacman/pacman-arm.conf")"
 	fi
 
-	if pacstrap -C "$pacman_conf" -M -K "$target" "${pkgs[@]}" --noconfirm; then
+	if pacstrap -C "$pacman_conf" -M "$target" "${pkgs[@]}" --noconfirm; then
 		log::success "Базовая система установлена."
 	else
 		log::die "Ошибка при работе pacstrap."
