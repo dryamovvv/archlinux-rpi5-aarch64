@@ -28,7 +28,7 @@ Three-tier user creation at first boot:
 
 - **Snapper subvolume snapshotting** — tested 3 times (rollback + reboot), always successful.
   Snapper configs (root + user_home) are created at build time.
-- **Rollback script** (`/usr/local/lib/rpi5-archlinux/rollback.sh`) — can roll back to any snapshot.
+- **Native snapper rollback** — `btrfs subvolume set-default @` at build time enables `snapper rollback`.
 - **BTRFS subvolume layout** — 8 subvolumes unchanged.
 - **MCP server** — embedded at build time, auto-starts via systemd.
 

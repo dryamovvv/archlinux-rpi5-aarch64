@@ -62,6 +62,8 @@ disk_image::create_filesystems() {
 		mkdir -p "$temp_mount"
 		if mount "$root_device" "$temp_mount"; then
 			disk::btrfs_subvol_create_all "$temp_mount"
+			btrfs subvolume set-default "$temp_mount/@" "$temp_mount"
+			log::info "btrfs default subvolume set to @ (for native snapper rollback)"
 			umount "$temp_mount"
 		else
 			log::die "Не удалось примонтировать btrfs для создания subvolumes"

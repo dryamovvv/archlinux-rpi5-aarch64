@@ -2,7 +2,7 @@
 
 ## Обоснование
 
-После v0.9.0 в rpi5-archlinux-image добавлены: LUKS-шифрование (3 режима разблокировки), nftables firewall, btrbk-бэкапы, rollback.sh, journal-gatewayd, Telegram unlock в initramfs. Для удалённого управления этими компонентами через opencode нужны новые MCP-инструменты.
+После v0.9.0 в rpi5-archlinux-image добавлены: LUKS-шифрование (3 режима разблокировки), nftables firewall, btrbk-бэкапы, native snapper rollback, journal-gatewayd, Telegram unlock в initramfs. Для удалённого управления этими компонентами через opencode нужны новые MCP-инструменты.
 
 ---
 
@@ -68,7 +68,7 @@
 | Action | Параметры | Описание |
 |--------|-----------|----------|
 | `diff` | `snap1`, `snap2`, `config=root` | `snapper diff` между двумя снапшотами |
-| `rollback` | `snap_num`, `config=root` | Запуск `/usr/local/lib/rpi5-archlinux/rollback.sh` |
+| `rollback` | `snap_num`, `config=root` | Запуск `snapper -c root rollback` (native, требует `set-default @`)
 | `rollback_dry` | `snap_num` | Показать что изменится без выполнения |
 | `create_config` | `name`, `subvolume`, `timeline?` | `snapper create-config` для нового subvolume |
 
