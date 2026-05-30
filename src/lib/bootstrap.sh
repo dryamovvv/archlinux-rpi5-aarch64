@@ -609,15 +609,6 @@ if [[ -n "$SNAPPER_ROOT" ]]; then
 fi
 sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root"/' /tmp/btrfs_new/etc/conf.d/snapper 2>/dev/null || \
     echo 'SNAPPER_CONFIGS="root"' >/tmp/btrfs_new/etc/conf.d/snapper
-
-echo "==> Fixing SSH config for password auth..."
-sed -i 's/KbdInteractiveAuthentication no/KbdInteractiveAuthentication yes/' \
-    /tmp/btrfs_new/etc/ssh/sshd_config.d/99-archlinux.conf 2>/dev/null || true
-grep -q '^KbdInteractiveAuthentication yes' /tmp/btrfs_new/etc/ssh/sshd_config 2>/dev/null || \
-    echo 'KbdInteractiveAuthentication yes' >>/tmp/btrfs_new/etc/ssh/sshd_config
-grep -q '^PermitRootLogin' /tmp/btrfs_new/etc/ssh/sshd_config 2>/dev/null || \
-    echo 'PermitRootLogin yes' >>/tmp/btrfs_new/etc/ssh/sshd_config
-
 umount /tmp/btrfs_new
 
 echo "==> Rollback complete. Reboot to use the restored system."
