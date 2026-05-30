@@ -33,6 +33,8 @@ services::configure_services() {
 	if [[ "${BUILD_ENABLE_FIREWALL:-1}" == "1" ]]; then
 		log::info "Enable nftables firewall"
 		assets::write "nftables/nftables.conf" "$BUILD_MOUNT_ROOT/etc/nftables.conf"
+		local ssh_port="${BUILD_SSH_PORT:-22}"
+		sed -i "s/__SSH_PORT__/$ssh_port/" "$BUILD_MOUNT_ROOT/etc/nftables.conf"
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "nftables.service" "multi-user.target.wants"
 	fi
 
