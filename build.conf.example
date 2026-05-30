@@ -80,7 +80,6 @@ BUILD_PACKAGES=(
     "cpupower"
     "rng-tools"
     # Network & security
-    "iptables-nft"
     "fail2ban"
     "wpa_supplicant"
     "avahi"
@@ -112,6 +111,9 @@ BUILD_PACKAGES=(
 BUILD_ENABLE_JOURNAL_GATEWAY=1
 # MCP server (arch-ops-server on port 8080, Bearer auth): 1=enabled (default), 0=disabled
 BUILD_ENABLE_MCP_SERVER=1
+
+# Firewall (nftables): 1=enabled (default), 0=disabled. Allows SSH+HTTP+HTTPS, drops rest.
+BUILD_ENABLE_FIREWALL=1
 
 # EEPROM update channel: "default" (stable) or "latest" (newer, +performance)
 BUILD_EEPROM_CHANNEL="latest"
@@ -145,7 +147,6 @@ BUILD_QEMU_PACKAGES=(
     "cpupower"
     "rng-tools"
     # Network & security
-    "iptables-nft"
     "fail2ban"
     "wpa_supplicant"
     "avahi"

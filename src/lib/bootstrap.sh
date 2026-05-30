@@ -586,7 +586,7 @@ bootstrap::mcp_server() {
 	api_key=$(python3 -c "import uuid; print(uuid.uuid4())")
 	mkdir -p "$target/etc/arch-ops-mcp"
 	cat >"$target/etc/arch-ops-mcp/env" <<EOF
-ARCH_OPS_SERVER_BIND=0.0.0.0
+ARCH_OPS_SERVER_BIND=127.0.0.1
 ARCH_OPS_SERVER_API_KEY=$api_key
 EOF
 	chmod 600 "$target/etc/arch-ops-mcp/env"
