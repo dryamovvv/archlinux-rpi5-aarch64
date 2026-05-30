@@ -33,14 +33,10 @@ grep 'Finished Complete first boot' qemu-boot.log  # должен быть
 grep 'FAILED\|error\|Error' qemu-boot.log | grep -v regulatory.db
 
 # 5. Пробуем SSH
-ssh -p 2222 user@localhost  # пароль из BUILD_USER_PASSWORD (по умолчанию 'user'), сменит при входе
+ssh -p 2222 root@localhost  # пароль из BUILD_ROOT_PASSWORD (по умолчанию 'root')
 systemctl is-system-running  # → running
 systemctl list-units --state=failed  # → пусто
-# Для homectl: проверка пользователя
-homectl list  # должен показать user
-systemctl status systemd-homed.service  # → active
-# Проверка MCP-сервера (порт 8080)
-curl http://localhost:8080/health
+# Проверка MCP-сервера (порт 8080 не форвардится — только в плане)
 cat dist/images/archlinux-qemu-aarch64.img.mcp-key  # API-ключ
 ```
 
