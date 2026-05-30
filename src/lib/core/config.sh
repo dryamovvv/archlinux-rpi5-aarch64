@@ -89,7 +89,6 @@ config::validate() {
 		"${BUILD_MOUNT_ROOT:-}"
 		"${BUILD_MOUNT_BOOT:-}"
 		"${BUILD_MKINITCPIO_HOOKS:-}"
-		"${BUILD_SSH_USER:-}"
 	)
 	local value=""
 

@@ -327,14 +327,26 @@ bootstrap::enable_wheel_sudo() {
 
 bootstrap::sshd() {
 	local target="$1"
-	local ssh_user="$2"
+	local ssh_user="${2:-}"
 	local extra_users="${3:-}"
 	log::assert_not_empty "$target" "точка монтирования"
-	log::assert_not_empty "$ssh_user" "пользователь ssh"
 
 	log::info "Настраиваем sshd"
 	echo "PermitRootLogin ${BUILD_SSH_PERMIT_ROOT_LOGIN:-yes}" >>"$target/etc/ssh/sshd_config"
-	echo "AllowUsers root $ssh_user $extra_users" >>"$target/etc/ssh/sshd_config"
+
+	local allow_users="root"
+	[[ -n "$ssh_user" ]] && allow_users+=" $ssh_user"
+	[[ -n "$extra_users" ]] && allow_users+=" $extra_users"
+	echo "AllowUsers $allow_users" >>"$target/etc/ssh/sshd_config"
+
+	if [[ -n "${BUILD_ROOT_SSH_KEY:-}" ]]; then
+		mkdir -p "$target/root/.ssh"
+		chmod 700 "$target/root/.ssh"
+		echo "$BUILD_ROOT_SSH_KEY" >"$target/root/.ssh/authorized_keys"
+		chmod 600 "$target/root/.ssh/authorized_keys"
+		log::info "Root SSH key installed"
+	fi
+
 	bootstrap::systemd_enable_unit "$target" "sshd.service" "multi-user.target.wants"
 }
 
