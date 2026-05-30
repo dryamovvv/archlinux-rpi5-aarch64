@@ -52,8 +52,10 @@ services::configure_services() {
 	assets::write "fail2ban/sshd.conf" "$BUILD_MOUNT_ROOT/etc/fail2ban/jail.d/sshd.conf"
 	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "fail2ban.service" "multi-user.target.wants"
 
-	log::info "Enable systemd-journal-gatewayd (HTTP logs on port 19531)"
-	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-journal-gatewayd.socket" "sockets.target.wants"
+	if [[ "${BUILD_ENABLE_JOURNAL_GATEWAY:-1}" == "1" ]]; then
+		log::info "Enable systemd-journal-gatewayd (HTTP logs on port 19531)"
+		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-journal-gatewayd.socket" "sockets.target.wants"
+	fi
 
 	if [[ "${BUILD_ENABLE_WIFI:-0}" == "1" ]]; then
 		log::info "Wi-Fi enabled"
