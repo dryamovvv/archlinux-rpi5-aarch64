@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2034  # config globals consumed by sourced config::validate
 
 set -euo pipefail
 
