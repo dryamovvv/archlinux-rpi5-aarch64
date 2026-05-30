@@ -122,7 +122,6 @@ UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=@snapshots            0 0
 UUID=$root_uuid /var/log   btrfs rw,noatime,compress=zstd,subvol=@var_log 0 0
 UUID=$root_uuid /var/cache btrfs rw,noatime,nodatacow,subvol=@var_cache   0 0
 UUID=$root_uuid /var/tmp   btrfs rw,noatime,nodatacow,subvol=@var_tmp     0 0
-UUID=$root_uuid /var/lib   btrfs rw,noatime,nodatacow,subvol=@var_lib     0 0
 UUID=$root_uuid /swap      btrfs rw,noatime,nodatacow,subvol=@swap        0 0
 UUID=$boot_uuid /boot      vfat defaults,noatime,nofail                    0 0
 EOF
