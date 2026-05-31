@@ -4,29 +4,38 @@ run_hook() {
     local chat_id="__CHAT_ID__"
     local luks_uuid="__LUKS_UUID__"
     local luks_name="cryptroot"
-    local poll_interval=5
+    local max_wait=120
+    local start_time
+    start_time=$(awk 'BEGIN{print systime()}' 2>/dev/null || echo 0)
 
-    msg ":: Telegram unlock: waiting for passphrase..."
+    msg ":: Telegram unlock: polling Bot API (timeout ${max_wait}s)..."
+
+    curl -s -m 5 "https://api.telegram.org/bot${bot_token}/sendMessage" \
+        -d "chat_id=${chat_id}" \
+        -d "text=Booted at $(date -u +%H:%M:%S). Send LUKS passphrase." \
+        >/dev/null 2>&1 || msg ":: Telegram: sendMessage failed (API blocked?)"
 
     local offset=0
     local resp
-    resp="$(curl -s -m 10 "https://api.telegram.org/bot${bot_token}/getUpdates" 2>/dev/null)"
+    resp="$(curl -s -m 5 "https://api.telegram.org/bot${bot_token}/getUpdates" 2>/dev/null)"
     offset="$(echo "$resp" | sed -n 's/.*"update_id":\([0-9]*\).*/\1/p' | tail -1)"
     if [ -n "$offset" ]; then
         offset=$((offset + 1))
     fi
 
-    curl -s -m 5 "https://api.telegram.org/bot${bot_token}/sendMessage" \
-        -d "chat_id=${chat_id}" \
-        -d "text=Booted. Send LUKS passphrase." \
-        >/dev/null 2>&1 || true
-
     while true; do
-        resp="$(curl -s -m 30 "https://api.telegram.org/bot${bot_token}/getUpdates?offset=${offset}&timeout=20" 2>/dev/null)"
-        local text
-        text="$(echo "$resp" | grep -o '"text":"[^"]*"' | head -1 | sed 's/"text":"//;s/"$//')"
+        local elapsed=0
+        if [ "$start_time" != "0" ]; then
+            elapsed=$(($(awk 'BEGIN{print systime()}' 2>/dev/null || echo 0) - start_time))
+            [ "$elapsed" -ge "$max_wait" ] && { msg ":: Telegram: timeout, falling back to keyboard"; return 1; }
+        fi
 
-        if [ -n "$text" ]; then
+        resp="$(curl -s -m 15 "https://api.telegram.org/bot${bot_token}/getUpdates?offset=${offset}&timeout=10" 2>/dev/null)"
+
+        if [ -n "$resp" ] && echo "$resp" | grep -q '"text":"'; then
+            local text
+            text="$(echo "$resp" | grep -o '"text":"[^"]*"' | head -1 | sed 's/"text":"//;s/"$//')"
+
             local new_offset
             new_offset="$(echo "$resp" | sed -n 's/.*"update_id":\([0-9]*\).*/\1/p' | tail -1)"
             [ -n "$new_offset" ] && offset=$((new_offset + 1))
@@ -41,7 +50,7 @@ run_hook() {
             fi
         fi
 
-        sleep "$poll_interval"
+        sleep 5
     done
 }
 
