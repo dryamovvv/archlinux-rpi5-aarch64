@@ -51,8 +51,6 @@ jobs:
           if [[ -n "$LUKS_PASSWORD" ]]; then
             echo "BUILD_ENABLE_ENCRYPTION=1" >> build.conf
             echo "BUILD_LUKS_PASSWORD=$LUKS_PASSWORD" >> build.conf
-            echo "BUILD_IMAGE_SIZE=2g" >> build.conf
-            echo 'BUILD_MODULES=("disk_image" "base_system" "boot_config" "services" "release_validation")' >> build.conf
           fi
           if [[ -n "$TG_BOT_TOKEN" ]] && [[ -n "$TG_CHAT_ID" ]]; then
             echo "BUILD_LUKS_UNLOCK_MODE=telegram" >> build.conf
