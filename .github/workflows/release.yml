@@ -42,7 +42,7 @@ jobs:
         run: |
           cp build.conf.example build.conf
           if [[ -n "$ROOT_SSH_KEY" ]]; then
-            echo "BUILD_ROOT_SSH_KEY=$ROOT_SSH_KEY" >> build.conf
+            echo "BUILD_ROOT_SSH_KEY='$ROOT_SSH_KEY'" >> build.conf
             echo "BUILD_SSH_PERMIT_ROOT_LOGIN=prohibit-password" >> build.conf
           fi
           if [[ -n "$SSH_PORT" ]]; then
