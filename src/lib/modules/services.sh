@@ -69,11 +69,11 @@ services::configure_services() {
 	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "fail2ban.service" "multi-user.target.wants"
 
 	if [[ "${BUILD_ENABLE_JOURNAL_GATEWAY:-1}" == "1" ]]; then
-		log::info "Enable systemd-journal-gatewayd (HTTP logs on 127.0.0.1:19531)"
+		log::info "Enable systemd-journal-gatewayd (HTTP logs on 0.0.0.0:19531)"
 		mkdir -p "$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d"
 		cat >"$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d/override.conf" <<'EOF'
 [Socket]
-ListenStream=127.0.0.1:19531
+ListenStream=19531
 EOF
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-journal-gatewayd.socket" "sockets.target.wants"
 	fi
