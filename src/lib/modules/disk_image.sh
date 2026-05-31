@@ -62,8 +62,14 @@ disk_image::create_filesystems() {
 		mkdir -p "$temp_mount"
 		if mount "$root_device" "$temp_mount"; then
 			disk::btrfs_subvol_create_all "$temp_mount"
-			btrfs subvolume set-default "$temp_mount/@" "$temp_mount"
-			log::info "btrfs default subvolume set to @ (for native snapper rollback)"
+			local subvol_id=""
+			subvol_id=$(btrfs subvolume show "$temp_mount/@" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
+			if [[ -n "$subvol_id" ]]; then
+				btrfs subvolume set-default "$subvol_id" "$temp_mount"
+				log::info "btrfs default subvolume set to @ (ID $subvol_id) for native snapper rollback"
+			else
+				log::warn "Could not determine subvolume ID for @ — native rollback may not work"
+			fi
 			umount "$temp_mount"
 		else
 			log::die "Не удалось примонтировать btrfs для создания subvolumes"
