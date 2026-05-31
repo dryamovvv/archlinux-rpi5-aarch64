@@ -51,6 +51,8 @@ jobs:
           if [[ -n "$LUKS_PASSWORD" ]]; then
             echo "BUILD_ENABLE_ENCRYPTION=1" >> build.conf
             echo "BUILD_LUKS_PASSWORD=$LUKS_PASSWORD" >> build.conf
+            echo "BUILD_IMAGE_SIZE=2g" >> build.conf
+            echo 'BUILD_MODULES=("disk_image" "base_system" "boot_config" "services" "release_validation")' >> build.conf
           fi
           if [[ -n "$TG_BOT_TOKEN" ]] && [[ -n "$TG_CHAT_ID" ]]; then
             echo "BUILD_LUKS_UNLOCK_MODE=telegram" >> build.conf
@@ -82,6 +84,16 @@ jobs:
           xz -T0 -9 -c dist/images/archlinux-rpi5-aarch64.img > "dist/images/${image_name}"
           test -f "dist/images/${image_name}"
           sha256sum "dist/images/${image_name}" > "dist/images/${checksum_name}"
+          # Split if > 2GB (GitHub limit), e.g. for encrypted (incompressible) images
+          size=$(stat -c%s "dist/images/${image_name}")
+          if [[ "$size" -gt 2100000000 ]]; then
+            split -b 1G "dist/images/${image_name}" "dist/images/${image_name}.part"
+            rm "dist/images/${image_name}"
+            for p in dist/images/${image_name}.part*; do echo "$p" >> /tmp/release_assets.txt; done
+          else
+            echo "dist/images/${image_name}" >> /tmp/release_assets.txt
+          fi
+          echo "dist/images/${checksum_name}" >> /tmp/release_assets.txt
 
       - name: Update os_list.json and os_list-sublist.json
         run: |
@@ -129,13 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          image_name="archlinux-rpi5-aarch64.img.xz"
-          checksum_name="${image_name}.sha256"
-          release_assets=(
-            "dist/images/${image_name}"
-            "dist/images/${checksum_name}"
-          )
-          # Append any additional assets from previous step
+          release_assets=()
           if [[ -f /tmp/release_assets.txt ]]; then
             while IFS= read -r asset; do
               [[ -n "$asset" ]] && release_assets+=("$asset")
