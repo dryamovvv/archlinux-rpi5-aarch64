@@ -456,7 +456,7 @@ bootstrap::btrfs_setup_snapper() {
 	local snap_mount="$target/.snapshots"
 	local root_part=""
 	if [[ -n "${CRYPTROOT_DEVICE:-}" ]]; then
-		root_part="/dev/mapper/cryptroot"
+		root_part="$CRYPTROOT_DEVICE"
 	else
 		disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
 		root_part="$RESOLVED_PARTITION_PATH"

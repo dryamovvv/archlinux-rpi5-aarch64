@@ -41,8 +41,8 @@ disk_image::create_filesystems() {
 
 	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
 		disk::luks_format "$part_root" "$BUILD_LUKS_PASSWORD"
-		disk::luks_open "$part_root" "cryptroot" "$BUILD_LUKS_PASSWORD"
-		root_device="/dev/mapper/cryptroot"
+		disk::luks_open "$part_root" "cryptbuild" "$BUILD_LUKS_PASSWORD"
+		root_device="/dev/mapper/cryptbuild"
 		CRYPTROOT_DEVICE="$root_device"
 		readonly CRYPTROOT_DEVICE
 		LUKS_UUID="$(blkid -s UUID -o value "$part_root")"

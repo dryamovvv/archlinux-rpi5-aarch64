@@ -1,131 +1,171 @@
-# Arch Linux Audit Report — `archlinux-develop` (RPi5)
+# Arch Linux RPi5 — System Audit Report
 
-**Date:** 2026-05-30 | **Uptime:** 45 min | **Kernel:** `6.18.33-3-rpi-16k` | **Arch:** `aarch64`
-
----
-
-## 1. System Overview
-
-| Metric | Value |
-|--------|-------|
-| RAM | 16212M total, 15790M available (97% free) |
-| Storage | 932G NVMe (`/dev/nvme0n1p2`), 19G used (2%) |
-| Hostname | `archlinux-develop` |
-| Failed services | 0 |
-| Installed packages | 299 in pacman cache |
+**Host:** `archlinux-develop` | **Kernel:** `6.18.33-4-rpi-16k` | **Arch:** `aarch64`  
+**Uptime:** ~48 min | **RAM:** 15.8G free / 16.2G total  
+**Date:** 2026-06-01
 
 ---
 
-## 2. Packages & Databases
+## Quick Health Table
 
-| DB | Last Sync | Age | Status |
-|----|-----------|-----|--------|
-| extra | 2026-05-30 | 5.9h | ✅ OK |
-| core | 2026-05-28 | 35.7h | ❌ Stale |
-| alarm | 2026-05-28 | 54.1h | ❌ Stale |
-| aur | 2026-05-19 | 250.9h | ❌ Very stale |
-| community | **2023-05-20** | **26540h** | ❌ 3+ years old |
-
-| Check | Result |
-|-------|--------|
-| Pending updates | 0 |
-| Orphans | 0 |
-| Ignored packages | None |
-
-**Fix:** `sudo pacman -Sy` (or `-Syu` for full update). The `community` DB from May 2023 is likely never synced — Arch ARM may not use it; verify if it should be disabled in `pacman.conf`.
-
----
-
-## 3. Mirrors
-
-| Check | Result |
-|-------|--------|
-| Health score | **45/100 (critical)** |
-| Active mirrors | 1 of 13 |
-| Active URL | `http://mirror.archlinuxarm.org/$arch/$repo` |
-| Speed test | 510ms → 404 (likely testing wrong arch) |
-| Redundancy | ❌ None |
-
-**Fix:** Enable 2-3 geographically close mirrors from the 12 commented-out entries in `/etc/pacman.d/mirrorlist` (e.g., `de.mirror.archlinuxarm.org`, `fr.mirror.archlinuxarm.org`).
+| Category | Metric | Status |
+|----------|--------|--------|
+| System | Failed services | ✅ 0 |
+| System | System state | ✅ running |
+| Storage | Disk usage | ✅ 1% (237G free) |
+| Storage | Pacman cache | ✅ 539 MB (257 pkgs) |
+| Packages | Pending updates | ✅ 0 |
+| Packages | Orphans | ✅ 0 |
+| Packages | DB freshness (community) | ❌ 26603h |
+| Packages | DB freshness (aur) | ❌ 53h |
+| Packages | DB freshness (alarm) | ❌ 30h |
+| Packages | DB freshness (core) | ❌ 28h |
+| Packages | DB freshness (extra) | ✅ 0.7h |
+| Mirrors | Health score | ❌ 45/100 |
+| BTRFS | Device errors | ✅ 0 |
+| BTRFS | Scrub | ✅ clean |
+| Boot | Boot artifacts | ✅ all present |
+| Boot | cmdline.txt | ✅ valid (LUKS + UUID + subvol) |
+| Boot | rpi-eeprom-config | ❌ not installed |
+| Security | Firewall | ❌ 0 rules |
+| Security | SSH root login | ❌ enabled |
+| Security | fail2ban | ❌ not installed |
+| Security | MCP server | ❌ inactive |
+| Services | sshd, networkd, resolved | ✅ active |
+| Services | snapper-timeline | ❌ inactive |
+| FSTAB | @var_lib subvolume | ❌ missing |
+| FSTAB | /var/log nodatacow | ❌ missing |
 
 ---
 
-## 4. BTRFS Filesystem
+## 🔴 CRITICAL (Fix Immediately)
 
-| Item | Details |
-|------|---------|
-| Label | `archlinux` |
-| Device | `/dev/nvme0n1p2` (932G) |
-| Subvolumes | 15 (`@`, `@home`, `@snapshots`, `@swap`, `@var_log`, `@var_cache`, `@var_tmp`, `@var_lib`, ...) |
-| Device errors | 0 |
-| Scrub | No errors found |
-| Snapper config | `root` (6 snapshots) |
-
-**Snapper snapshots:**
-| # | Type | Date | Description |
-|---|------|------|-------------|
-| 0 | single | current | baseline |
-| 1-2 | pre/post | 08:25 today | `pacman -U arch-ops-server` |
-| 3-4 | pre/post | 08:25 today | `pacman -R arch-ops-server` |
-| 5 | single | 09:00 today | timeline |
-
----
-
-## 5. Boot Logs — Errors
-
-**`arch-ops-mcp.service` EXEC failures** (during boot before 08:25):
+### 1. SSH Root Login Enabled
+**File:** `/etc/ssh/sshd_config`
 ```
-Failed at step EXEC spawning /root/.local/bin/arch-ops-server-http: No such file or directory
+PermitRootLogin yes
+AllowUsers root
 ```
-The service was restart-looped ~30 times between boot and 08:25, when the binary was installed. After reinstall, the MCP server is running normally. This was likely a transient issue during initial provisioning — the service no longer fails.
+Root can log in directly over SSH. Combined with potentially password-based auth, this is a severe security risk.
+- **Fix:** Set `PermitRootLogin prohibit-password` (or `no`), create a non-root user with `sudo`.
 
-**SSH error (08:36):**
-```
-sshd-session: kex_exchange_identification: read: Connection reset by peer [preauth]
-```
-One connection reset from an external peer. Likely a port scan or aborted connection — benign unless recurring.
+### 2. No Firewall Protection
+**nftables ruleset is empty — 0 rules.** All ports exposed to the network.
+- **Fix:** Enable and configure `nftables`:
+  ```bash
+  sudo systemctl enable --now nftables
+  sudo nft add table inet filter
+  sudo nft add chain inet filter input { type filter hook input priority 0\; policy drop\; }
+  sudo nft add rule inet filter input iif lo accept
+  sudo nft add rule inet filter input ct state established,related accept
+  sudo nft add rule inet filter input tcp dport 22 accept
+  ```
+
+### 3. Stale Pacman Databases
+| Repo | Age | Last Sync |
+|------|-----|-----------|
+| community | **26603h (~3 years)** | 2023-05-20 |
+| aur | 53h | 2026-05-30 |
+| alarm | 30h | 2026-05-31 |
+| core | 28h | 2026-05-31 |
+| extra | 0.7h | 2026-06-01 |
+
+The `community` repo was merged into `extra` in 2023. Having it still configured is a misconfiguration.
+- **Fix:** 
+  1. Remove `[community]` from `/etc/pacman.conf`
+  2. Run `sudo pacman -Syu` to refresh databases and update
+
+### 4. Mirrors Critical (45/100)
+Only 1 active mirror (`mirror.archlinuxarm.org`). 12 mirrors commented out. Mirror speed tests fail (404 on fallback mirrors).
+- **Fix:** Update mirrorlist with `sudo pacman -Syu` or manually from [archlinuxarm.org](https://archlinuxarm.org/about/mirrors).
+
+### 5. Snapper Timeline Inactive
+`snapper-timeline.timer` is inactive — automatic BTRFS snapshots are not running.
+- **Fix:** `sudo systemctl enable --now snapper-timeline.timer`
 
 ---
 
-## 6. Critical Arch News (Require Attention)
+## 🟡 WARNING (Fix Soon)
 
-| Title | Date | Severity |
-|-------|------|----------|
-| Breaking changes for `varnish` → `vinyl-cache` | 2026-05-25 | Critical |
-| `kea >= 1:3.0.3-6` requires manual intervention | 2026-04-07 | Critical |
-| `.NET` packages may require manual intervention | 2025-12-11 | Critical |
-| `waydroid >= 1.5.4-3` may require manual intervention | 2025-11-06 | Critical |
-| `dovecot >= 2.4` requires manual intervention | 2025-10-31 | Critical |
-| `zabbix >= 7.4.1-2` may require manual intervention | 2025-08-04 | Critical |
-| `linux-firmware >= 20250613` requires manual intervention | 2025-06-21 | Critical |
+### 6. Missing @var_lib Subvolume in fstab
+BTRFS has `@var_lib` subvolume (ID 263 as `var/lib/portables`, ID 264 as `var/lib/machines`) but `/etc/fstab` has no entry for `/var/lib`.
+- **Fix:** Add fstab entry:
+  ```
+  UUID=d4a7ca99-a312-435e-984a-3726935f3bd0 /var/lib btrfs rw,noatime,nodatacow,subvol=@var_lib 0 0
+  ```
 
-**Assessment:** None of these packages are likely installed on this minimal RPi5 image. Verify with `pacman -Qs "varnish|kea|dotnet|waydroid|dovecot|zabbix"` before ignoring. The `linux-firmware` one may be relevant — check with `pacman -Qs linux-firmware`.
+### 7. /var/log Missing nodatacow
+`/var/log` is mounted with `compress=zstd` but without `nodatacow`. Log directories benefit from `nodatacow` to avoid CoW overhead.
+- **Fix:** Add `nodatacow` to `/var/log` mount options in `/etc/fstab`.
+
+### 8. fail2ban Not Installed
+No brute-force protection for SSH or other services.
+- **Fix:** `sudo pacman -S fail2ban && sudo systemctl enable --now fail2ban`
+
+### 9. MCP Server Inactive
+`arch-ops-mcp.service` is not running. The MCP API key is not set. Remote management via opencode is unavailable.
+- **Fix:** `sudo systemctl enable --now arch-ops-mcp.service` and configure API key.
+
+### 10. rpi-eeprom-config Not Installed
+Cannot check BOOT_ORDER or EEPROM status. Overclock is configured (2.8 GHz) but EEPROM state is unknown.
+- **Fix:** `sudo pacman -S rpi-eeprom` (from alarm repo).
+
+### 11. pacman-contrib Not Installed
+`checkupdates` tool unavailable — cannot check for pending updates without `-Syy`.
+- **Fix:** `sudo pacman -S pacman-contrib`
 
 ---
 
-## 7. Config (pacman.conf)
+## 🟢 POSITIVE FINDINGS
 
-| Setting | Value |
-|---------|-------|
-| Repos | core, extra, alarm, aur |
-| ParallelDownloads | 5 |
-| SigLevel | Required DatabaseOptional |
-| Architecture | aarch64 |
-| HoldPkg | pacman, glibc |
-| ignored_packages | (none) |
+- **LUKS encryption active** — `rd.luks.name=...=cryptroot` in cmdline.txt
+- **UUID-based boot** — `root=UUID=d4a7ca99-...` (no device names)
+- **BTRFS with proper subvolume layout** — 9 subvolumes, compress=zstd on /
+- **No failed services** — All systemd units healthy
+- **No orphaned packages** — Clean package database
+- **Boot artifacts complete** — kernel8.img, initramfs, dtb, config.txt, cmdline.txt all present
+- **System state: running** — No emergency or degraded mode
+- **Overclock configured** — 2.8 GHz with voltage delta (safe with Active Cooler)
+- **WiFi/BT disabled via dt-overlay** — Reduced attack surface
 
 ---
 
-## 8. Priority Fixes
+## 🔧 BOOT CONFIGURATION
 
-### Immediate
-1. **Sync package databases:** `sudo pacman -Sy`
-2. **Enable backup mirrors:** Uncomment 2-3 mirrors in `/etc/pacman.d/mirrorlist` for redundancy
+| Parameter | Value |
+|-----------|-------|
+| `arm_freq` | 2800 MHz (overclock) |
+| `over_voltage_delta` | 25000 |
+| `dtoverlay` | vc4-kms-v3d, disable-wifi, disable-bt |
+| `dtparam` | pciex1_gen=3, audio=on |
+| `auto_initramfs` | 1 |
+| `kernel` | kernel8.img (4K pages, auto-detected) |
 
-### Soon
-3. **Investigate `community` DB:** If unused on Arch ARM, remove from `pacman.conf` to avoid confusion
-4. **Full system update:** `sudo pacman -Syu` (check Arch News for `linux-firmware` intervention if installed)
+**cmdline.txt:** `rd.luks.name=... cryptroot root=UUID=... rw rootwait console=tty1 quiet loglevel=3 mitigations=off nowatchdog rootflags=subvol=@`
 
-### Monitor
-5. **SSH kex reset:** Watch for recurrence — if frequent, investigate (firewall, rate limiting)
-6. **Snapper cleanup:** Ensure retention policy is configured (`snapper -c root set-config TIMELINE_LIMIT_HOURLY=...`)
+- `mitigations=off` — Spectre/Meltdown mitigations disabled (performance; acceptable on RPi5)
+- `nowatchdog` — Hardware watchdog disabled
+
+---
+
+## PRIORITY ACTION PLAN
+
+| # | Action | Priority | Effort |
+|---|--------|----------|--------|
+| 1 | Remove `[community]` from pacman.conf, run `pacman -Syu` | 🔴 Critical | Low |
+| 2 | Disable SSH root login, create non-root user | 🔴 Critical | Medium |
+| 3 | Enable and configure nftables firewall | 🔴 Critical | Medium |
+| 4 | Install fail2ban | 🔴 Critical | Low |
+| 5 | Fix mirrorlist / add more mirrors | 🔴 Critical | Low |
+| 6 | Enable snapper-timeline.timer | 🔴 Critical | Low |
+| 7 | Add @var_lib to fstab | 🟡 Warning | Low |
+| 8 | Add nodatacow to /var/log fstab options | 🟡 Warning | Low |
+| 9 | Install rpi-eeprom, check BOOT_ORDER | 🟡 Warning | Low |
+| 10 | Install pacman-contrib | 🟡 Warning | Low |
+| 11 | Enable arch-ops-mcp.service | 🟡 Warning | Low |
+
+---
+
+## POTENTIAL CONFIG ISSUE: `aur` Repository
+
+`pacman.conf` lists `[aur]` as a repository using the same mirrorlist. There is no official `aur` repository in Arch Linux — AUR is the *Arch User Repository* accessed via helpers (paru/yay). This may be a custom repo or a misconfiguration. **Verify what this repo provides** and consider removing it to avoid conflicts.
