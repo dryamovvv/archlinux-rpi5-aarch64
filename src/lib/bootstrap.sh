@@ -292,6 +292,7 @@ bootstrap::mkinitcpio_conf() {
 	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
 		modules="$modules dm_crypt"
 		new_hooks="${new_hooks//filesystems /sd-encrypt filesystems }"
+		new_hooks="${new_hooks//filesystems)/sd-encrypt filesystems)}"
 		if [[ "${BUILD_LUKS_UNLOCK_MODE:-keyboard}" == "ssh" ]]; then
 			new_hooks="${new_hooks//sd-encrypt /sd-network sd-tinyssh sd-encrypt }"
 			log::info "mkinitcpio: LUKS hooks (sd-network, sd-tinyssh, sd-encrypt, dm_crypt)"
@@ -385,6 +386,8 @@ bootstrap::disable_swap() {
 
 	log::info "Отключаем swap-файл и zram в образе..."
 	rm -f "$target/etc/systemd/zram-generator.conf"
+	# unmount @swap subvol before removing mount point
+	umount "$target/swap" 2>/dev/null || true
 	rm -rf "$target/swap"
 	if [[ -f "$target/etc/fstab" ]]; then
 		sed -i -E '/[[:space:]]swap[[:space:]]/d' "$target/etc/fstab"
