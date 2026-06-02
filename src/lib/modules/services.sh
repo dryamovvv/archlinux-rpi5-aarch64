@@ -107,4 +107,8 @@ EOF
 	if [[ "${BUILD_ENABLE_MCP_SERVER:-1}" == "1" ]]; then
 		bootstrap::mcp_server "$BUILD_MOUNT_ROOT"
 	fi
+
+	if [[ "${BUILD_ENABLE_BACKUP:-1}" == "1" ]]; then
+		bootstrap::btrbk_setup "$BUILD_MOUNT_ROOT"
+	fi
 }

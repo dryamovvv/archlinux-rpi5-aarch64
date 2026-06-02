@@ -593,3 +593,19 @@ bootstrap::auto_update() {
 
 	log::success "auto-upgrade включён (OnCalendar=daily, randomized 6h, persistent)"
 }
+
+bootstrap::btrbk_setup() {
+	local target="$1"
+	log::assert_not_empty "$target" "точка монтирования"
+
+	log::info "Настройка btrbk backup..."
+
+	assets::write "btrbk/btrbk.conf" "$target/etc/btrbk/btrbk.conf"
+	assets::write "btrbk/backup-extra.sh" "$target/usr/local/lib/rpi5-archlinux/backup-extra.sh"
+	chmod 0755 "$target/usr/local/lib/rpi5-archlinux/backup-extra.sh"
+	assets::write "btrbk/setup-backup.sh" "$target/usr/local/lib/rpi5-archlinux/setup-backup.sh"
+	chmod 0755 "$target/usr/local/lib/rpi5-archlinux/setup-backup.sh"
+	assets::write "systemd/backup-usb.service" "$target/etc/systemd/system/backup-usb.service"
+
+	log::success "btrbk backup сконфигурирован (service disabled — включить setup-backup.sh)"
+}

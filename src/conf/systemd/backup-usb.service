@@ -1,0 +1,15 @@
+[Unit]
+Description=Encrypted USB backup mount
+After=local-fs.target
+Before=btrbk.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/cryptsetup open --key-file=/root/backup-usb.key /dev/disk/by-partuuid/__USB_PARTUUID__ backup-usb
+ExecStart=/usr/bin/mount -o noatime,compress=zstd /dev/mapper/backup-usb /mnt/backup
+ExecStop=/usr/bin/umount /mnt/backup
+ExecStopPost=/usr/sbin/cryptsetup close backup-usb
+
+[Install]
+WantedBy=multi-user.target
