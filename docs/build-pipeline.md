@@ -13,26 +13,38 @@ prepare_image → map_loop → partition_image → create_filesystems → mount_
 | `prepare_image` | `disk_image.sh` | `truncate -s 4g archlinux-rpi5-aarch64.img` |
 | `map_loop` | `disk_image.sh` | `losetup --find -P --show` |
 | `partition_image` | `disk_image.sh` | GPT: 512M ESP (vfat) + остальное root (ext4 или btrfs) |
-| `create_filesystems` | `disk_image.sh` | `mkfs.vfat` + ext4/btrfs; для btrfs: создаёт 8 subvolume (`@`, `@home`, `@snapshots`, ...) |
-| `mount_filesystems` | `disk_image.sh` | root → `/mnt/arch_build`, boot → `/mnt/arch_build/boot` |
+| `create_filesystems` | `disk_image.sh` | `mkfs.vfat` + ext4/btrfs; LUKS: `cryptsetup luksFormat` + `open`; btrfs: 6 subvolume (`@`, `@home`, `@swap`, `@var_log`, `@var_cache`, `@var_tmp`) |
+| `mount_filesystems` | `disk_image.sh` | root `@` → `/mnt/arch_build`, boot ESP → `/mnt/arch_build/boot`, subvolumes (`@home`, `@swap`, `@var_*`) |
 | `prepare_base_config` | `base_system.sh` | `/etc/vconsole.conf` |
-| `install_base` | `base_system.sh` | `pacstrap` пакетов из `BUILD_PACKAGES` + `mkinitcpio` + `genfstab` |
-| `configure_boot` | `boot_config.sh` | Запись `cmdline.txt` (UUID-подстановка) и `config.txt` |
-| `configure_system` | `services.sh` | `systemd-firstboot` (locale, keymap, machine-id), `locale-gen`, `firstboot_service` (swapfile script) |
-| `configure_services` | `services.sh` | network, sshd, fail2ban, MCP server, snapper (btrfs only), rollback script, ZRAM, Wi-Fi, EEPROM, repart/growfs, journal-gatewayd |
-| `validate_boot_files` | `release_validation.sh` | Проверка наличия 5 boot-файлов |
-| `shrink_image` | `image_shrink.sh` | `resize2fs -M` → `truncate` → `sgdisk -e` |
+| `install_base` | `base_system.sh` | `pacstrap` пакетов + `mkinitcpio` (LUKS: `sd-encrypt`, без `kms`; btrfs: без `fsck`) + `fstab` (btrfs: вручную, без `subvol=@` для `/`) |
+| `configure_boot` | `boot_config.sh` | `cmdline.txt` (UUID + LUKS: `rd.luks.name`, `rd.luks.options=tty1`) и `config.txt` |
+| `configure_system` | `services.sh` | `systemd-firstboot` (locale/root/hostname), `locale-gen`, `pacman-key --init`, `firstboot_service` |
+| `configure_services` | `services.sh` | network, sshd, sudo, ZRAM, nftables, fstrim, cpu_boost, LUKS initramfs, repart/growfs, **snapper** (create-config + initial RW snapshot + default subvol), EEPROM, fail2ban, journal-gatewayd, MCP server |
+| `validate_boot_files` | `release_validation.sh` | Проверка 5 boot-файлов |
+| `shrink_image` | `image_shrink.sh` | `resize2fs -M` → `truncate` → `sgdisk -e` (ext4 only; btrfs пропускается) |
 
-## Где что происходит
+## Snapper rollback setup (step: configure_services)
 
-- **Разметка диска:** `src/lib/modules/disk_image.sh` + низкоуровневые функции в `src/lib/disk.sh`
-- **Установка пакетов:** `src/lib/bootstrap.sh` → `bootstrap::install_base()`
-- **Настройка системы:** `src/lib/bootstrap.sh` → `bootstrap::systemd_firstboot()`, `bootstrap::firstboot_service()`
-- **Сервисы:** `src/lib/modules/services.sh` → `services::configure_services()`
+```bash
+# 1. Создать конфиги (.snapshots subvolume внутри @)
+snapper --no-dbus -c root create-config /
+snapper --no-dbus -c home create-config /home
+
+# 2. Создать начальный read-write снапшот
+snapper --no-dbus -c root create --read-write -d "initial"
+
+# 3. Установить снапшот как default subvolume
+btrfs subvolume set-default <snap_id> /
+```
+
+`--no-dbus` нужен потому что в chroot нет D-Bus.
+`--read-write` обязателен — иначе система загрузится в read-only.
 
 ## Важные нюансы
 
 - `BUILD_ROOT_UUID` сохраняется при форматировании и подставляется в `cmdline.txt` через `sed`
-- `genfstab -U` генерирует fstab с UUID; для btrfs: fstab записывается вручную с subvolume-маунтами (не через `genfstab`)
-- `bootstrap::mkinitcpio_conf` вызывается ДО `bootstrap::regenerate_initramfs`; для btrfs: добавляет `MODULES=(vfat btrfs)`, убирает хук `fsck`
+- `genfstab -U` для ext4; для btrfs: fstab записывается вручную (без `subvol=@` для `/`, с `subvol=@/.snapshots` для `/.snapshots`)
+- `bootstrap::mkinitcpio_conf`: для btrfs добавляет `MODULES=(vfat btrfs)`, убирает `fsck`; для LUKS: `sd-encrypt` + `dm_crypt aes_ce_blk usbhid xhci_hcd`
+- HOOKS без `kms`: vc4-kms-v3d загружается через device tree после загрузки
+- `btrfs filesystem resize max` в firstboot делается ДО swap-файла (сначала расширяем, потом создаём)
 - QEMU-сборка пропускает `boot_config` и `release_validation`, добавляет `qemu_boot_config`
