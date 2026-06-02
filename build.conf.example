@@ -101,8 +101,10 @@ BUILD_PACKAGES=(
     "rng-tools"
     # Network & security
     "fail2ban"
+    "libmicrohttpd"
     "wpa_supplicant"
     "avahi"
+    # Quality-of-life
     "s-tui"
     "stress-ng"
     "fio"
@@ -168,8 +170,10 @@ BUILD_QEMU_PACKAGES=(
     "rng-tools"
     # Network & security
     "fail2ban"
+    "libmicrohttpd"
     "wpa_supplicant"
     "avahi"
+    # Quality-of-life
     "s-tui"
     "stress-ng"
     "fio"

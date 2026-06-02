@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+if command -v cryptsetup >/dev/null 2>&1; then
+	cryptsetup resize cryptroot 2>/dev/null || true
+	btrfs filesystem resize max / 2>/dev/null || true
+fi
+
 SWAPFILE_SIZE="__SWAPFILE_SIZE__"
 
 if [[ -n "$SWAPFILE_SIZE" ]] && command -v btrfs >/dev/null 2>&1 &&

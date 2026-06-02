@@ -14,6 +14,8 @@ services::configure_system() {
 	bootstrap::locale_gen_file "$BUILD_MOUNT_ROOT"
 	bootstrap::systemd_firstboot "$BUILD_MOUNT_ROOT"
 	arch-chroot "$BUILD_MOUNT_ROOT" locale-gen 2>&1 || log::warn "locale-gen encountered issues"
+	arch-chroot "$BUILD_MOUNT_ROOT" pacman-key --init 2>&1 || log::warn "pacman-key init failed"
+	arch-chroot "$BUILD_MOUNT_ROOT" pacman-key --populate archlinuxarm 2>&1 || log::warn "pacman-key populate failed"
 	bootstrap::firstboot_service "$BUILD_MOUNT_ROOT"
 }
 
@@ -35,6 +37,9 @@ services::configure_services() {
 		assets::write "nftables/nftables.conf" "$BUILD_MOUNT_ROOT/etc/nftables.conf"
 		local ssh_port="${BUILD_SSH_PORT:-22}"
 		sed -i "s/__SSH_PORT__/$ssh_port/" "$BUILD_MOUNT_ROOT/etc/nftables.conf"
+		if [[ "${BUILD_ENABLE_JOURNAL_GATEWAY:-0}" != "1" ]]; then
+			sed -i '/dport 19531/d' "$BUILD_MOUNT_ROOT/etc/nftables.conf"
+		fi
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "nftables.service" "multi-user.target.wants"
 	fi
 
@@ -69,11 +74,12 @@ services::configure_services() {
 	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "fail2ban.service" "multi-user.target.wants"
 
 	if [[ "${BUILD_ENABLE_JOURNAL_GATEWAY:-1}" == "1" ]]; then
-		log::info "Enable systemd-journal-gatewayd (HTTP logs on 0.0.0.0:19531)"
+		log::info "Enable systemd-journal-gatewayd (HTTP logs on 127.0.0.1:19531)"
 		mkdir -p "$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d"
 		cat >"$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d/override.conf" <<'EOF'
 [Socket]
-ListenStream=19531
+ListenStream=127.0.0.1:19531
+SocketBindIPv6Only=both
 EOF
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-journal-gatewayd.socket" "sockets.target.wants"
 	fi
