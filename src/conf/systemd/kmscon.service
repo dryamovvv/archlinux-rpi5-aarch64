@@ -1,0 +1,18 @@
+[Unit]
+Description=KMS Console on %I
+Documentation=man:kmscon(1)
+After=systemd-user-sessions.service
+Conflicts=getty@%i.service
+
+[Service]
+User=root
+PAMName=login
+ExecStart=/usr/lib/kmscon/kmscon --drm --login -- /bin/login
+Restart=always
+StandardInput=tty
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target

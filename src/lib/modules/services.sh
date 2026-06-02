@@ -61,6 +61,10 @@ services::configure_services() {
 		bootstrap::btrfs_setup_snapper "$BUILD_MOUNT_ROOT"
 	fi
 
+	if [[ "${BUILD_ENABLE_KMSCON:-1}" == "1" ]]; then
+		bootstrap::kmscon "$BUILD_MOUNT_ROOT"
+	fi
+
 	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-firstboot.service" "sysinit.target.wants"
 
 	if [[ -n "${BUILD_EEPROM_CHANNEL:-}" ]]; then

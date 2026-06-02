@@ -51,6 +51,8 @@ BUILD_ENABLE_FIREWALL=1
 # Periodic TRIM for NVMe/SSD (fstrim.timer): 1=enabled (default), 0=disabled
 # BTRFS discard=async is kernel default since 6.2 — fstrim is complementary, not replacement
 BUILD_ENABLE_FSTRIM=1
+# KMS console (kmscon): 1=enabled, 0=disabled — DRM terminal replaces getty on HDMI
+BUILD_ENABLE_KMSCON=1
 # Disk encryption via LUKS (btrfs only): 1=enabled, 0=disabled (default)
 # WARNING: requires pre-built mkinitcpio-systemd-extras AUR package at BUILD_AUR_PKG_URL
 BUILD_ENABLE_ENCRYPTION=0
@@ -126,19 +128,12 @@ BUILD_PACKAGES=(
     "zram-generator"
     # MCP server (uvx arch-ops-server) for remote AI diagnostics
     "uv"
+    # KMS console (kmscon): DRM-based terminal on HDMI -- replaces getty
+    # ttf-dejavu for fonts (--font-name monospace), kmscon-terminfo for $TERM=kmscon
+    "kmscon"
+    "ttf-dejavu"
+    "kmscon-terminfo"
 )
-
-# Journal gateway (HTTP logs on port 19531): 1=enabled (default), 0=disabled
-# WARNING: port 19531 is world-readable — disable on internet-facing hosts
-BUILD_ENABLE_JOURNAL_GATEWAY=1
-# MCP server (arch-ops-server on port 8080, Bearer auth): 1=enabled (default), 0=disabled
-BUILD_ENABLE_MCP_SERVER=1
-
-# Firewall (nftables): 1=enabled (default), 0=disabled. Allows SSH+HTTP+HTTPS, drops rest.
-BUILD_ENABLE_FIREWALL=1
-
-# EEPROM update channel: "default" (stable) or "latest" (newer, +performance)
-BUILD_EEPROM_CHANNEL="latest"
 
 BUILD_QEMU_MODULES=(
     "disk_image"

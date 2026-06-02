@@ -564,3 +564,19 @@ bootstrap::luks_initramfs() {
 
 	log::info "LUKS remote unlock configured"
 }
+
+bootstrap::kmscon() {
+	local target="$1"
+	log::assert_not_empty "$target" "точка монтирования"
+
+	log::info "Настройка kmscon (KMS/DRM console)..."
+
+	local kmscon_config_dir="$target/etc/kmscon"
+	mkdir -p "$kmscon_config_dir"
+	assets::write "kmscon/kmscon.conf" "$kmscon_config_dir/kmscon.conf"
+
+	assets::write "systemd/kmscon.service" "$target/etc/systemd/system/kmscon.service"
+	bootstrap::systemd_enable_custom_unit "$target" "kmscon.service" "multi-user.target.wants"
+
+	log::success "kmscon настроен (DRM console, HDMI, --drm mode, no seatd)"
+}

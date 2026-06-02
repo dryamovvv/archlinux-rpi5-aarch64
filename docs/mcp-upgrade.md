@@ -247,3 +247,89 @@ returns:
 | P4 | `verify_kernel_cmdline` | New |
 | P5 | `check_snapshot_usage` | New |
 | P6 | `manage_btrbk` | New |
+
+---
+
+## KMS Console (kmscon + seatd): Analysis for RPi5 production
+
+Tested 2026-06-02 on real RPi5 (vc4-kms-v3d, HDMI 1920x1080, USB keyboard).
+
+### What works
+
+```bash
+pacman -S --noconfirm kmscon fontconfig ttf-dejavu
+
+# Direct DRM mode (NO seatd)
+/usr/lib/kmscon/kmscon --drm --login
+```
+
+- Display: HDMI-A at native resolution, bbulk renderer, freetype fonts
+- Input: opens `/dev/input/event*` directly (USB keyboard + mouse)
+- Fonts: DejaVu Sans Mono works out of the box
+
+### What doesn't work: seatd
+
+seatd **core-dumps** on RPi5:
+
+```
+seatd: ../seatd-0.9.3/common/terminal.c:136: get_tty_path: Assertion `tty >= 0' failed.
+abort() → core dump
+```
+
+**Root cause**: seatd is built for traditional VT-based seat switching. When a client
+(kmscon) disconnects, seatd tries to switch back to the previous VT via `get_tty_path()`.
+On RPi5, the VT state is managed by systemd-logind + vc4 DRM driver — seatd finds
+no valid VT (`tty == -1`) and crashes.
+
+Additional errors before the crash:
+- `Could not open device: Operation not permitted` — seatd can't open `/dev/input/*` because it's not the active seat client
+- `Could not open device: client is not active` — seatd's internal seat tracking conflicts with logind's seat0 management
+- `No clients on seat0 to activate` — seatd loses track of which client owns the seat
+
+**Why seatd is redundant on RPi5**:
+- `systemd-logind` already manages seat0, DRM master, sessions
+- `vc4-kms-v3d` provides proper DRM/KMS kernel support
+- `/dev/input/event*` are accessible to root directly
+- kmscon can render to DRM and read input without any seat daemon
+
+### Production configuration
+
+**Don't install `seatd`** — install only `kmscon` + `fontconfig` + `ttf-dejavu`.
+
+Create `/etc/systemd/system/kmscon@.service` that uses `--drm` instead of `--vt`:
+
+```ini
+[Unit]
+Description=KMS Console on %I
+After=systemd-user-sessions.service
+Conflicts=getty@%i.service
+
+[Service]
+User=root
+PAMName=login
+ExecStart=/usr/lib/kmscon/kmscon --drm --login
+StandardInput=tty
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Key differences from stock `kmsconvt@.service`:
+- `--drm` instead of `--vt=%I --no-switchvt`
+- No seatd dependency (no `After=seatd.service`)
+- `WantedBy=multi-user.target` (not `getty.target`) — avoids VT conflict
+- `PAMName=login` for proper logind session
+
+### Why `--drm` works while `--vt` doesn't
+
+| Mode | Display | Input | Seat mgmt | VT switch | Works? |
+|------|---------|-------|-----------|-----------|--------|
+| `--vt=tty1` | DRM via libseat | via seatd/logind | seatd required | VT ioctl | ❌ seatd crashes |
+| `--drm` | DRM direct | `/dev/input/*` direct | none needed | n/a | ✅ |
+| `--drm --login` | DRM direct | input direct | logind session | n/a | ✅ |
+
+`--drm` bypasses libseat entirely for input — kmscon opens event devices directly
+as root. The display path via DRM is the same in both modes.
