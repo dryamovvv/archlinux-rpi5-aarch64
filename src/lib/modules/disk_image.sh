@@ -62,13 +62,18 @@ disk_image::create_filesystems() {
 		mkdir -p "$temp_mount"
 		if mount "$root_device" "$temp_mount"; then
 			disk::btrfs_subvol_create_all "$temp_mount"
+			# Create initial snapper snapshot and set it as default subvolume
+			# This is REQUIRED for snapper rollback — getDefault() looks for
+			# subvolume path matching /([0-9]+)/snapshot$ regex pattern
+			mkdir -p "$temp_mount/.snapshots/1"
+			btrfs subvolume snapshot "$temp_mount/@" "$temp_mount/.snapshots/1/snapshot"
 			local subvol_id=""
-			subvol_id=$(btrfs subvolume show "$temp_mount/@" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
+			subvol_id=$(btrfs subvolume show "$temp_mount/.snapshots/1/snapshot" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
 			if [[ -n "$subvol_id" ]]; then
 				btrfs subvolume set-default "$subvol_id" "$temp_mount"
-				log::info "btrfs default subvolume set to @ (ID $subvol_id) for native snapper rollback"
+				log::info "btrfs default subvolume set to .snapshots/1/snapshot (ID $subvol_id) for snapper rollback"
 			else
-				log::warn "Could not determine subvolume ID for @ — native rollback may not work"
+				log::warn "Could not determine subvolume ID for initial snapshot — rollback may not work"
 			fi
 			umount "$temp_mount"
 		else
