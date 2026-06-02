@@ -116,9 +116,9 @@ bootstrap::generate_btrfs_fstab() {
 	log::info "Генерация /etc/fstab для btrfs subvolume layout..."
 	cat <<EOF >"$target/etc/fstab"
 # /etc/fstab — btrfs subvolume layout
-UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90,subvol=@       0 0
+UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90       0 0
 UUID=$root_uuid /home      btrfs rw,noatime,compress=zstd,subvol=@home    0 0
-UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=.snapshots            0 0
+UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=@/.snapshots            0 0
 UUID=$root_uuid /var/log   btrfs rw,noatime,compress=zstd,subvol=@var_log 0 0
 UUID=$root_uuid /var/cache btrfs rw,noatime,nodatacow,subvol=@var_cache   0 0
 UUID=$root_uuid /var/tmp   btrfs rw,noatime,nodatacow,subvol=@var_tmp     0 0
@@ -233,6 +233,7 @@ bootstrap::cmdline_txt() {
 				sed -i "1s/^/rd.luks.name=$LUKS_UUID=cryptroot ip=dhcp /" "$target/cmdline.txt"
 			else
 				sed -i "1s/^/rd.luks.name=$LUKS_UUID=cryptroot /" "$target/cmdline.txt"
+				sed -i "1s/root=/rd.luks.options=cryptroot=tty1 root=/" "$target/cmdline.txt"
 			fi
 			log::info "cmdline.txt: rd.luks.name=$LUKS_UUID=cryptroot root=UUID=$BUILD_ROOT_UUID ($BUILD_LUKS_UNLOCK_MODE mode)"
 		else
@@ -288,7 +289,7 @@ bootstrap::mkinitcpio_conf() {
 	#   ssh:      sd-network + sd-tinyssh + sd-encrypt
 	#   telegram: sd-network + telegram-unlock + sd-encrypt
 	if [[ "${BUILD_ENABLE_ENCRYPTION:-0}" == "1" ]]; then
-		modules="$modules dm_crypt"
+		modules="$modules dm_crypt aes_ce_blk usbhid xhci_hcd"
 		new_hooks="${new_hooks//filesystems /sd-encrypt filesystems }"
 		new_hooks="${new_hooks//filesystems)/sd-encrypt filesystems)}"
 		if [[ "${BUILD_LUKS_UNLOCK_MODE:-keyboard}" == "ssh" ]]; then
@@ -452,68 +453,23 @@ bootstrap::btrfs_setup_snapper() {
 	log::assert_not_empty "$target" "точка монтирования"
 
 	log::info "Настройка snapper для btrfs..."
-	log::info ".snapshots subvolume на верхнем уровне (для нативного rollback)"
 
-	btrfs subvolume create "$target/home/.snapshots" 2>/dev/null || true
-	log::info "Создан .snapshots subvolume внутри @home"
+	arch-chroot "$target" snapper --no-dbus -c root create-config / 2>&1 || {
+		log::warn "snapper -c root create-config failed"
+		return 0
+	}
+	arch-chroot "$target" snapper --no-dbus -c home create-config /home 2>&1 || log::warn "snapper home config failed"
 
-	mkdir -p "$target/etc/snapper/configs"
-	cat >"$target/etc/snapper/configs/root" <<'SNAPCONF'
-SUBVOLUME="/"
-FSTYPE="btrfs"
-QGROUP=""
-SPACE_LIMIT="0.5"
-FREE_LIMIT="0.2"
-ALLOW_USERS=""
-ALLOW_GROUPS=""
-SYNC_ACL="no"
-BACKGROUND_COMPARISON="yes"
-NUMBER_CLEANUP="yes"
-NUMBER_MIN_AGE="1800"
-NUMBER_LIMIT="50"
-NUMBER_LIMIT_IMPORTANT="10"
-TIMELINE_CREATE="yes"
-TIMELINE_CLEANUP="yes"
-TIMELINE_MIN_AGE="1800"
-TIMELINE_LIMIT_HOURLY="5"
-TIMELINE_LIMIT_DAILY="7"
-TIMELINE_LIMIT_WEEKLY="4"
-TIMELINE_LIMIT_MONTHLY="3"
-TIMELINE_LIMIT_YEARLY="2"
-EMPTY_PRE_POST_CLEANUP="yes"
-EMPTY_PRE_POST_MIN_AGE="1800"
-SNAPCONF
+	arch-chroot "$target" bash -c '
+		snapper --no-dbus -c root create --read-write -d "initial"
+		snap_id=$(btrfs subvolume show /.snapshots/1/snapshot 2>/dev/null | awk "/Subvolume ID:/ {print \$NF}")
+		if [[ -n "$snap_id" ]]; then
+			btrfs subvolume set-default "$snap_id" /
+			echo "initial snapshot ID=$snap_id set as default"
+		fi
+	' 2>&1 || log::warn "initial snapshot creation failed"
 
-	cat >"$target/etc/snapper/configs/home" <<'SNAPCONF'
-SUBVOLUME="/home"
-FSTYPE="btrfs"
-QGROUP=""
-SPACE_LIMIT="0.5"
-FREE_LIMIT="0.2"
-ALLOW_USERS=""
-ALLOW_GROUPS=""
-SYNC_ACL="no"
-BACKGROUND_COMPARISON="yes"
-NUMBER_CLEANUP="yes"
-NUMBER_MIN_AGE="1800"
-NUMBER_LIMIT="50"
-NUMBER_LIMIT_IMPORTANT="10"
-TIMELINE_CREATE="yes"
-TIMELINE_CLEANUP="yes"
-TIMELINE_MIN_AGE="1800"
-TIMELINE_LIMIT_HOURLY="3"
-TIMELINE_LIMIT_DAILY="7"
-TIMELINE_LIMIT_WEEKLY="4"
-TIMELINE_LIMIT_MONTHLY="3"
-TIMELINE_LIMIT_YEARLY="2"
-EMPTY_PRE_POST_CLEANUP="yes"
-EMPTY_PRE_POST_MIN_AGE="1800"
-SNAPCONF
-
-	# Register config in /etc/conf.d/snapper (snapper create-config does this)
-	if [[ -f "$target/etc/conf.d/snapper" ]]; then
-		sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root home"/' "$target/etc/conf.d/snapper"
-	fi
+	log::info "Initial snapshot created and set as default subvolume"
 
 	bootstrap::systemd_enable_unit "$target" "snapper-timeline.timer" "timers.target.wants"
 	bootstrap::systemd_enable_unit "$target" "snapper-cleanup.timer" "timers.target.wants"

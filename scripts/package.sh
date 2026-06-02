@@ -24,7 +24,7 @@ if [[ ! -f "$BUILD_CONFIG_FILE" ]]; then
     exit 1
 fi
 
-append_without_header() {
+    append_without_header() {
     local path="$1"
 
     # shellcheck disable=SC2016

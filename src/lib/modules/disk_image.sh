@@ -62,19 +62,6 @@ disk_image::create_filesystems() {
 		mkdir -p "$temp_mount"
 		if mount "$root_device" "$temp_mount"; then
 			disk::btrfs_subvol_create_all "$temp_mount"
-			# Create initial snapper snapshot and set it as default subvolume
-			# This is REQUIRED for snapper rollback — getDefault() looks for
-			# subvolume path matching /([0-9]+)/snapshot$ regex pattern
-			mkdir -p "$temp_mount/.snapshots/1"
-			btrfs subvolume snapshot "$temp_mount/@" "$temp_mount/.snapshots/1/snapshot"
-			local subvol_id=""
-			subvol_id=$(btrfs subvolume show "$temp_mount/.snapshots/1/snapshot" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
-			if [[ -n "$subvol_id" ]]; then
-				btrfs subvolume set-default "$subvol_id" "$temp_mount"
-				log::info "btrfs default subvolume set to .snapshots/1/snapshot (ID $subvol_id) for snapper rollback"
-			else
-				log::warn "Could not determine subvolume ID for initial snapshot — rollback may not work"
-			fi
 			umount "$temp_mount"
 		else
 			log::die "Не удалось примонтировать btrfs для создания subvolumes"
@@ -99,9 +86,8 @@ disk_image::mount_filesystems() {
 
 	if [[ "$root_fs" == "btrfs" ]]; then
 		disk::btrfs_mount_subvol_root "$part_root" "$BUILD_MOUNT_ROOT"
-		mkdir -p "$BUILD_MOUNT_ROOT"/{home,.snapshots,swap,var/{log,cache,tmp}}
+		mkdir -p "$BUILD_MOUNT_ROOT"/{home,swap,var/{log,cache,tmp}}
 		disk::btrfs_mount_subvol "$part_root" "@home" "$BUILD_MOUNT_ROOT/home" "compress=zstd,noatime"
-		disk::btrfs_mount_subvol "$part_root" ".snapshots" "$BUILD_MOUNT_ROOT/.snapshots" "noatime"
 		disk::btrfs_mount_subvol "$part_root" "@swap" "$BUILD_MOUNT_ROOT/swap" "noatime,nodatacow"
 		disk::btrfs_mount_subvol "$part_root" "@var_log" "$BUILD_MOUNT_ROOT/var/log" "compress=zstd,noatime"
 		disk::btrfs_mount_subvol "$part_root" "@var_cache" "$BUILD_MOUNT_ROOT/var/cache" "noatime,nodatacow"
