@@ -104,7 +104,8 @@ check_existing() {
 format_drive() {
 	info "Formatting $BACKUP_PART with LUKS2..."
 
-	if ! cryptsetup luksFormat --type luks2 --batch-mode "$BACKUP_PART"; then
+	info "Enter LUKS passphrase for the backup drive:"
+	if ! cryptsetup luksFormat --type luks2 "$BACKUP_PART"; then
 		error "LUKS format failed"
 		exit 1
 	fi
