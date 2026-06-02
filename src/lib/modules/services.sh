@@ -78,8 +78,8 @@ services::configure_services() {
 		mkdir -p "$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d"
 		cat >"$BUILD_MOUNT_ROOT/etc/systemd/system/systemd-journal-gatewayd.socket.d/override.conf" <<'EOF'
 [Socket]
+ListenStream=
 ListenStream=127.0.0.1:19531
-SocketBindIPv6Only=both
 EOF
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-journal-gatewayd.socket" "sockets.target.wants"
 	fi
