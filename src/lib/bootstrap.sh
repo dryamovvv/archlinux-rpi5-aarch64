@@ -580,3 +580,16 @@ bootstrap::kmscon() {
 
 	log::success "kmscon настроен (DRM console, HDMI, --drm mode, no seatd)"
 }
+
+bootstrap::auto_update() {
+	local target="$1"
+	log::assert_not_empty "$target" "точка монтирования"
+
+	log::info "Настройка auto-upgrade (daily pacman -Syu timer)..."
+
+	assets::write "systemd/pacman-auto-upgrade.service" "$target/etc/systemd/system/pacman-auto-upgrade.service"
+	assets::write "systemd/pacman-auto-upgrade.timer" "$target/etc/systemd/system/pacman-auto-upgrade.timer"
+	bootstrap::systemd_enable_custom_unit "$target" "pacman-auto-upgrade.timer" "timers.target.wants"
+
+	log::success "auto-upgrade включён (OnCalendar=daily, randomized 6h, persistent)"
+}

@@ -53,6 +53,10 @@ BUILD_ENABLE_FIREWALL=1
 BUILD_ENABLE_FSTRIM=1
 # KMS console (kmscon): 1=enabled, 0=disabled — DRM terminal replaces getty on HDMI
 BUILD_ENABLE_KMSCON=1
+# Auto-upgrade via systemd timer: 1=enabled (default), 0=disabled
+# Creates snapper pre/post snapshots via snap-pac on each upgrade.
+# OnCalendar=daily with 6h randomized delay + persistent (runs on boot if missed).
+BUILD_ENABLE_AUTO_UPDATE=1
 # Disk encryption via LUKS (btrfs only): 1=enabled, 0=disabled (default)
 # WARNING: requires pre-built mkinitcpio-systemd-extras AUR package at BUILD_AUR_PKG_URL
 BUILD_ENABLE_ENCRYPTION=0

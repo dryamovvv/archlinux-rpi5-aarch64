@@ -1,0 +1,6 @@
+[Unit]
+Description=Daily pacman -Syu auto-upgrade (snapper snapshots via snap-pac)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pacman -Syu --noconfirm

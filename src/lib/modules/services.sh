@@ -48,6 +48,10 @@ services::configure_services() {
 		bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "fstrim.timer" "timers.target.wants"
 	fi
 
+	if [[ "${BUILD_ENABLE_AUTO_UPDATE:-1}" == "1" ]]; then
+		bootstrap::auto_update "$BUILD_MOUNT_ROOT"
+	fi
+
 	bootstrap::cpu_boost "$BUILD_MOUNT_ROOT"
 	bootstrap::wifi_regdom "$BUILD_MOUNT_ROOT"
 
