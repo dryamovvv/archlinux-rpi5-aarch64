@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 BACKUP_DEV=""
 BACKUP_PART=""
@@ -21,11 +20,11 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 confirm() {
 	local prompt="$1"
-	local default="${2:-N}"
 	local yn
-	read -r -p "$prompt (${default,,}/${default^^[A-Z]}) " yn
-	case "$yn" in
-	[Yy]* | [Yy][Ee][Ss]*) return 0 ;;
+	printf '%s (y/N) ' "$prompt"
+	read -r yn
+	case "${yn,,}" in
+	y | yes) return 0 ;;
 	*) return 1 ;;
 	esac
 }
