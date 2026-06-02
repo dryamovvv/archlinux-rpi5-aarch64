@@ -1,0 +1,34 @@
+site_name: rpi5-archlinux-image
+site_description: Arch Linux ARM + LUKS + btrfs + snapper для Raspberry Pi 5
+repo_url: https://github.com/dryamovvv/archlinux-rpi5-aarch64
+repo_name: dryamovvv/archlinux-rpi5-aarch64
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: lime
+
+nav:
+  - Главная: index.md
+  - Сборка: build-pipeline.md
+  - Конфигурация: configuration.md
+  - Первая загрузка: first-boot.md
+  - LUKS шифрование: luks.md
+  - Snapper rollback: snapper.md
+  - ZRAM + swap: swap.md
+  - Бэкапы (btrbk): backup.md
+  - MCP сервер: arch-mcp.md
+  - QEMU тестирование: qemu-testing.md
+  - История: homectl.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.details
+  - toc:
+      permalink: true
