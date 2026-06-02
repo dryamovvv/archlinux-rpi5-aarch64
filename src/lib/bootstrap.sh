@@ -209,7 +209,15 @@ bootstrap::firstboot_service() {
 
 	assets::write "systemd/firstboot.sh" "$identity_dir/firstboot.sh"
 	sed -i "s/__SWAPFILE_SIZE__/${BUILD_SWAPFILE_SIZE:-}/g" "$identity_dir/firstboot.sh"
-	chmod 0755 "$identity_dir/firstboot.sh"
+	if [[ -n "${BUILD_ENABLE_ENCRYPTION:-}" && "${BUILD_ENABLE_ENCRYPTION}" == "1" && -n "${BUILD_LUKS_PASSWORD:-}" ]]; then
+		local escaped="${BUILD_LUKS_PASSWORD//\\/\\\\}"
+		escaped="${escaped//&/\\&}"
+		escaped="${escaped//#/\\#}"
+		sed -i "s#__LUKS_PASSWORD__#$escaped#g" "$identity_dir/firstboot.sh"
+	else
+		sed -i "s#__LUKS_PASSWORD__##g" "$identity_dir/firstboot.sh"
+	fi
+	chmod 0700 "$identity_dir/firstboot.sh"
 
 	assets::write "systemd/rpi5-firstboot.service" "$target/etc/systemd/system/rpi5-firstboot.service"
 

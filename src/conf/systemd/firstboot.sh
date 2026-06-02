@@ -1,8 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-if command -v cryptsetup >/dev/null 2>&1; then
-	cryptsetup resize cryptroot 2>/dev/null || true
+LUKS_PASSWORD="__LUKS_PASSWORD__"
+if [[ -n "$LUKS_PASSWORD" ]] && command -v cryptsetup >/dev/null 2>&1; then
+	printf '%s' "$LUKS_PASSWORD" | cryptsetup resize cryptroot 2>/dev/null || true
 	btrfs filesystem resize max / 2>/dev/null || true
 fi
 
