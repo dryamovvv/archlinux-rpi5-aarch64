@@ -529,6 +529,9 @@ SNAPCONF
 		log::info "Удален вложенный .snapshots subvolume внутри @"
 	fi
 
+	btrfs subvolume create "$target/home/.snapshots" 2>/dev/null || true
+	log::info "Создан .snapshots subvolume внутри @home"
+
 	mkdir -p "$snap_mount"
 	mount -o subvol=@snapshots,noatime "$root_part" "$snap_mount"
 	chmod 750 "$snap_mount"
