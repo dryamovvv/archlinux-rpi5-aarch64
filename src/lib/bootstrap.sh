@@ -383,6 +383,15 @@ bootstrap::sshd() {
 			"$target/etc/ssh/sshd_config.d/99-archlinux.conf"
 	fi
 
+	if [[ -n "$ssh_user" ]]; then
+		arch-chroot "$target" useradd -m -G wheel "$ssh_user" 2>/dev/null || true
+		log::info "Создан пользователь $ssh_user с группой wheel"
+		if [[ -n "${BUILD_SSH_USER_PASSWORD:-}" ]]; then
+			echo "${ssh_user}:${BUILD_SSH_USER_PASSWORD}" | arch-chroot "$target" chpasswd
+			log::info "Пароль для $ssh_user установлен"
+		fi
+	fi
+
 	local allow_users="root"
 	[[ -n "$ssh_user" ]] && allow_users+=" $ssh_user"
 	[[ -n "$extra_users" ]] && allow_users+=" $extra_users"
