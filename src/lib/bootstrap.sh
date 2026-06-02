@@ -116,9 +116,8 @@ bootstrap::generate_btrfs_fstab() {
 	log::info "Генерация /etc/fstab для btrfs subvolume layout..."
 	cat <<EOF >"$target/etc/fstab"
 # /etc/fstab — btrfs subvolume layout
-UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90 0 0
+UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90,subvol=@       0 0
 UUID=$root_uuid /home      btrfs rw,noatime,compress=zstd,subvol=@home    0 0
-UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=@snapshots            0 0
 UUID=$root_uuid /var/log   btrfs rw,noatime,compress=zstd,subvol=@var_log 0 0
 UUID=$root_uuid /var/cache btrfs rw,noatime,nodatacow,subvol=@var_cache   0 0
 UUID=$root_uuid /var/tmp   btrfs rw,noatime,nodatacow,subvol=@var_tmp     0 0
@@ -453,19 +452,14 @@ bootstrap::btrfs_setup_snapper() {
 
 	log::info "Настройка snapper для btrfs..."
 
-	local snap_mount="$target/.snapshots"
-	local root_part=""
-	if [[ -n "${CRYPTROOT_DEVICE:-}" ]]; then
-		root_part="$CRYPTROOT_DEVICE"
-	else
-		disk::resolve_partition_path "$CURRENT_LOOP_DEV" 2
-		root_part="$RESOLVED_PARTITION_PATH"
+	if btrfs subvolume delete "$target/.snapshots" >/dev/null 2>&1; then
+		log::info "Удален вложенный .snapshots subvolume внутри @"
 	fi
+	btrfs subvolume create "$target/.snapshots" 2>/dev/null || true
+	log::info "Создан .snapshots subvolume внутри @ (для нативного rollback)"
 
-	if mountpoint -q "$snap_mount" 2>/dev/null; then
-		umount "$snap_mount"
-	fi
-	rmdir "$snap_mount" 2>/dev/null || true
+	btrfs subvolume create "$target/home/.snapshots" 2>/dev/null || true
+	log::info "Создан .snapshots subvolume внутри @home"
 
 	mkdir -p "$target/etc/snapper/configs"
 	cat >"$target/etc/snapper/configs/root" <<'SNAPCONF'
@@ -525,91 +519,14 @@ SNAPCONF
 		sed -i 's/SNAPPER_CONFIGS=""/SNAPPER_CONFIGS="root home"/' "$target/etc/conf.d/snapper"
 	fi
 
-	if btrfs subvolume delete "$target/.snapshots" >/dev/null 2>&1; then
-		log::info "Удален вложенный .snapshots subvolume внутри @"
-	fi
-
-	btrfs subvolume create "$target/home/.snapshots" 2>/dev/null || true
-	log::info "Создан .snapshots subvolume внутри @home"
-
-	mkdir -p "$snap_mount"
-	mount -o subvol=@snapshots,noatime "$root_part" "$snap_mount"
-	chmod 750 "$snap_mount"
-
 	bootstrap::systemd_enable_unit "$target" "snapper-timeline.timer" "timers.target.wants"
 	bootstrap::systemd_enable_unit "$target" "snapper-cleanup.timer" "timers.target.wants"
 
 	log::success "Snapper настроен"
 }
 
-# Snapper rollback via btrfs subvolume swap
-# Usage: rollback.sh <snapshot_number>
-# Stores btrfs subvolume swap logic - snapper native rollback can't auto-detect
-# ambit with our @snapshots layout (snapshots not inline inside @)
-bootstrap::btrfs_write_rollback_script() {
-	local target="$1"
-	log::assert_not_empty "$target" "точка монтирования"
-
-	local rollback_dir="$target/usr/local/lib/rpi5-archlinux"
-	mkdir -p "$rollback_dir"
-
-	cat <<'ROLLBACKSCRIPT' >"$rollback_dir/rollback.sh"
-#!/bin/bash
-set -euo pipefail
-
-ROLLBACK_NUM="${1:-}"
-if [[ -z "$ROLLBACK_NUM" ]]; then
-    echo "Usage: rollback.sh <snapshot_number>"
-    echo ""
-    echo "Available snapshots:"
-    snapper -c root list
-    exit 1
-fi
-
-ROOT_DEV="$(findmnt -n -o SOURCE /)"
-ROOT_DEV="${ROOT_DEV%%[*}"
-TOP="/tmp/btrfs_rollback"
-
-cleanup() { umount "$TOP" 2>/dev/null; rmdir "$TOP" 2>/dev/null; }
-trap cleanup EXIT
-
-echo "==> Snapshot #$ROLLBACK_NUM will replace the current @ subvolume."
-echo "==> WARNING: All changes since the snapshot will be lost!"
-read -rp "Continue? [y/N] " confirm
-[[ "$confirm" == "y" || "$confirm" == "Y" ]] || { echo "Aborted."; exit 0; }
-
-mkdir -p "$TOP"
-mount -o subvolid=5 "$ROOT_DEV" "$TOP"
-SNAP_PATH="$TOP/@snapshots/$ROLLBACK_NUM/snapshot"
-
-if [[ ! -d "$SNAP_PATH" ]]; then
-    echo "ERROR: Snapshot $ROLLBACK_NUM not found at $SNAP_PATH"
-    exit 1
-fi
-
-echo "==> Removing previous @.old if exists..."
-btrfs subvolume delete "$TOP/@.old" 2>/dev/null || true
-
-echo "==> Moving current @ to @.old..."
-mv "$TOP/@.old" "$TOP/@.old" 2>/dev/null || true
-mv "$TOP/@" "$TOP/@.old"
-
-echo "==> Creating read-write snapshot of #$ROLLBACK_NUM as new @..."
-btrfs subvolume snapshot "$SNAP_PATH" "$TOP/@"
-
-echo "==> Setting @ as default subvolume..."
-SUBVOL_ID=$(btrfs subvolume show "$TOP/@@" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
-btrfs subvolume set-default "$SUBVOL_ID" "$TOP"
-
-echo "==> Rollback complete. Reboot to use the restored system."
-echo "    Old root preserved as @.old — delete manually after reboot:"
-echo "      mount -o subvolid=5 /dev/disk/by-uuid/... /mnt"
-echo "      btrfs subvolume delete /mnt/@.old"
-echo "    sudo reboot"
-ROLLBACKSCRIPT
-	chmod 0755 "$rollback_dir/rollback.sh"
-	log::info "Rollback script: /usr/local/lib/rpi5-archlinux/rollback.sh"
-}
+# Native snapper rollback — .snapshots is nested inside @ subvolume.
+# Users can use: snapper -c root rollback <snap_num> && reboot
 
 bootstrap::mcp_server() {
 	local target="$1"
