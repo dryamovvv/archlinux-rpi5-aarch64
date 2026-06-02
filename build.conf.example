@@ -129,9 +129,9 @@ BUILD_PACKAGES=(
     # MCP server (uvx arch-ops-server) for remote AI diagnostics
     "uv"
     # KMS console (kmscon): DRM-based terminal on HDMI -- replaces getty
-    # ttf-dejavu for fonts (--font-name monospace), kmscon-terminfo for $TERM=kmscon
+    # ttf-hack-nerd for fonts (patched Hack with icons), kmscon-terminfo for $TERM=kmscon
     "kmscon"
-    "ttf-dejavu"
+    "ttf-hack-nerd"
     "kmscon-terminfo"
 )
 
