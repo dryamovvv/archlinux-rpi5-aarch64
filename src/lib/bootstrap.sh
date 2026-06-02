@@ -542,16 +542,81 @@ SNAPCONF
 	log::success "Snapper настроен"
 }
 
-# Native snapper rollback replaces custom rollback.sh (v0.10.0)
-# btrfs subvolume set-default @ is done at image creation time
-# Users can use: snapper -c root rollback <snap_num> && reboot
+# Snapper rollback via btrfs subvolume swap
+# Usage: rollback.sh <snapshot_number>
+# Stores btrfs subvolume swap logic - snapper native rollback can't auto-detect
+# ambit with our @snapshots layout (snapshots not inline inside @)
+bootstrap::btrfs_write_rollback_script() {
+	local target="$1"
+	log::assert_not_empty "$target" "точка монтирования"
+
+	local rollback_dir="$target/usr/local/lib/rpi5-archlinux"
+	mkdir -p "$rollback_dir"
+
+	cat <<'ROLLBACKSCRIPT' >"$rollback_dir/rollback.sh"
+#!/bin/bash
+set -euo pipefail
+
+ROLLBACK_NUM="${1:-}"
+if [[ -z "$ROLLBACK_NUM" ]]; then
+    echo "Usage: rollback.sh <snapshot_number>"
+    echo ""
+    echo "Available snapshots:"
+    snapper -c root list
+    exit 1
+fi
+
+ROOT_DEV="$(findmnt -n -o SOURCE /)"
+ROOT_DEV="${ROOT_DEV%%[*}"
+TOP="/tmp/btrfs_rollback"
+
+cleanup() { umount "$TOP" 2>/dev/null; rmdir "$TOP" 2>/dev/null; }
+trap cleanup EXIT
+
+echo "==> Snapshot #$ROLLBACK_NUM will replace the current @ subvolume."
+echo "==> WARNING: All changes since the snapshot will be lost!"
+read -rp "Continue? [y/N] " confirm
+[[ "$confirm" == "y" || "$confirm" == "Y" ]] || { echo "Aborted."; exit 0; }
+
+mkdir -p "$TOP"
+mount -o subvolid=5 "$ROOT_DEV" "$TOP"
+SNAP_PATH="$TOP/@snapshots/$ROLLBACK_NUM/snapshot"
+
+if [[ ! -d "$SNAP_PATH" ]]; then
+    echo "ERROR: Snapshot $ROLLBACK_NUM not found at $SNAP_PATH"
+    exit 1
+fi
+
+echo "==> Removing previous @.old if exists..."
+btrfs subvolume delete "$TOP/@.old" 2>/dev/null || true
+
+echo "==> Moving current @ to @.old..."
+mv "$TOP/@.old" "$TOP/@.old" 2>/dev/null || true
+mv "$TOP/@" "$TOP/@.old"
+
+echo "==> Creating read-write snapshot of #$ROLLBACK_NUM as new @..."
+btrfs subvolume snapshot "$SNAP_PATH" "$TOP/@"
+
+echo "==> Setting @ as default subvolume..."
+SUBVOL_ID=$(btrfs subvolume show "$TOP/@@" 2>/dev/null | awk '/Subvolume ID:/ {print $NF}')
+btrfs subvolume set-default "$SUBVOL_ID" "$TOP"
+
+echo "==> Rollback complete. Reboot to use the restored system."
+echo "    Old root preserved as @.old — delete manually after reboot:"
+echo "      mount -o subvolid=5 /dev/disk/by-uuid/... /mnt"
+echo "      btrfs subvolume delete /mnt/@.old"
+echo "    sudo reboot"
+ROLLBACKSCRIPT
+	chmod 0755 "$rollback_dir/rollback.sh"
+	log::info "Rollback script: /usr/local/lib/rpi5-archlinux/rollback.sh"
+}
 
 bootstrap::mcp_server() {
 	local target="$1"
 	log::assert_not_empty "$target" "точка монтирования"
 
 	log::info "Installing arch-ops-server (MCP) in chroot..."
-	if ! arch-chroot "$target" uv tool install --from "git+https://github.com/dryamovvv/arch-mcp" "arch-ops-server[http]" 2>&1; then
+	if ! arch-chroot "$target" uv tool install "git+https://github.com/dryamovvv/arch-mcp" 2>&1; then
 		log::warn "MCP server installation failed — skipping service enablement (no network?)"
 		return 0
 	fi

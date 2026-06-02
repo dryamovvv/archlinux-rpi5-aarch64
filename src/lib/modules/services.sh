@@ -59,6 +59,7 @@ services::configure_services() {
 
 	if [[ "${BUILD_FILESYSTEM:-ext4}" == "btrfs" ]]; then
 		bootstrap::btrfs_setup_snapper "$BUILD_MOUNT_ROOT"
+		bootstrap::btrfs_write_rollback_script "$BUILD_MOUNT_ROOT"
 	fi
 
 	bootstrap::systemd_enable_unit "$BUILD_MOUNT_ROOT" "systemd-firstboot.service" "sysinit.target.wants"
