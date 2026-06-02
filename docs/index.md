@@ -107,3 +107,8 @@ btrfs send /mnt/backup/@.20260602 | btrfs receive /mnt/restore/
 - qemu-user-static на x86_64 **не работает** (ломает `unshare` в pacstrap)
 - Рекомендуется активное охлаждение для RPi5 (overclock до 2.8 GHz)
 - 4+ GB SD-карта (образ занимает ~2 GB после установки)
+
+---
+## Ссылки
+
+- Документация: [dryamovvv.github.io/archlinux-rpi5-aarch64](https://dryamovvv.github.io/archlinux-rpi5-aarch64/)
