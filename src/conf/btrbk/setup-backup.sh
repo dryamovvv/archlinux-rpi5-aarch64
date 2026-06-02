@@ -178,6 +178,7 @@ SERVICEEOF
 }
 
 setup_btrfs() {
+	mkdir -p "$BACKUP_MOUNT"
 	if cryptsetup open "$BACKUP_PART" backup-usb 2>/dev/null; then
 		if ! blkid /dev/mapper/backup-usb 2>/dev/null | grep -q btrfs; then
 			info "Creating btrfs on /dev/mapper/backup-usb (label: backup)"
