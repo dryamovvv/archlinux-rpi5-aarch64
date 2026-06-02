@@ -1,1 +1,1 @@
-root=UUID=__ROOT_UUID__ rw rootwait console=tty0 systemd.show_status=1 mitigations=off nowatchdog
+root=UUID=__ROOT_UUID__ rw rootwait console=tty0 systemd.show_status=1 loglevel=3 mitigations=off nowatchdog
