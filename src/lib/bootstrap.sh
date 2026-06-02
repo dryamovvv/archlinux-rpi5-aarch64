@@ -118,6 +118,7 @@ bootstrap::generate_btrfs_fstab() {
 # /etc/fstab — btrfs subvolume layout
 UUID=$root_uuid /          btrfs rw,noatime,compress=zstd,x-systemd.device-timeout=90,subvol=@       0 0
 UUID=$root_uuid /home      btrfs rw,noatime,compress=zstd,subvol=@home    0 0
+UUID=$root_uuid /.snapshots btrfs rw,noatime,subvol=.snapshots            0 0
 UUID=$root_uuid /var/log   btrfs rw,noatime,compress=zstd,subvol=@var_log 0 0
 UUID=$root_uuid /var/cache btrfs rw,noatime,nodatacow,subvol=@var_cache   0 0
 UUID=$root_uuid /var/tmp   btrfs rw,noatime,nodatacow,subvol=@var_tmp     0 0
@@ -451,12 +452,7 @@ bootstrap::btrfs_setup_snapper() {
 	log::assert_not_empty "$target" "точка монтирования"
 
 	log::info "Настройка snapper для btrfs..."
-
-	if btrfs subvolume delete "$target/.snapshots" >/dev/null 2>&1; then
-		log::info "Удален вложенный .snapshots subvolume внутри @"
-	fi
-	btrfs subvolume create "$target/.snapshots" 2>/dev/null || true
-	log::info "Создан .snapshots subvolume внутри @ (для нативного rollback)"
+	log::info ".snapshots subvolume на верхнем уровне (для нативного rollback)"
 
 	btrfs subvolume create "$target/home/.snapshots" 2>/dev/null || true
 	log::info "Создан .snapshots subvolume внутри @home"

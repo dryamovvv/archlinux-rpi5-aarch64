@@ -446,6 +446,7 @@ disk::btrfs_subvol_create_all() {
 	local subvolumes=(
 		"@"
 		"@home"
+		".snapshots"
 		"@swap"
 		"@var_log"
 		"@var_cache"
