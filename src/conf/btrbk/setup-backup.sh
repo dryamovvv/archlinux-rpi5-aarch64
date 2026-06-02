@@ -68,6 +68,7 @@ check_existing() {
 		fi
 
 		# Try to open and check if already configured
+		cryptsetup close backup-usb 2>/dev/null || true
 		if cryptsetup open "$BACKUP_PART" backup-usb 2>/dev/null; then
 			if mount /dev/mapper/backup-usb "$BACKUP_MOUNT" 2>/dev/null; then
 				if [[ -d "$BACKUP_MOUNT/rpi5" ]]; then
@@ -154,6 +155,7 @@ setup_service() {
 	fi
 
 	info "Writing $SERVICE_FILE"
+	mkdir -p /mnt/btrfs
 	cat >"$SERVICE_FILE" <<SERVICEEOF
 [Unit]
 Description=Encrypted USB backup mount
@@ -163,10 +165,13 @@ Before=btrbk.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+ExecStartPre=/usr/bin/mkdir -p /mnt/btrfs
+ExecStartPre=/usr/bin/mount -o subvolid=5 /dev/mapper/cryptroot /mnt/btrfs
 ExecStartPre=/usr/sbin/cryptsetup open --key-file=$KEYFILE $device_by_id backup-usb
 ExecStart=/usr/bin/mount -o noatime,compress=zstd /dev/mapper/backup-usb $BACKUP_MOUNT
 ExecStop=/usr/bin/umount $BACKUP_MOUNT
 ExecStopPost=/usr/sbin/cryptsetup close backup-usb
+ExecStopPost=/usr/bin/umount /mnt/btrfs
 
 [Install]
 WantedBy=multi-user.target
@@ -210,11 +215,13 @@ verify() {
 	systemctl is-active backup-usb.service >/dev/null || {
 		error "backup-usb.service failed"
 		systemctl status backup-usb.service --no-pager
+		systemctl stop backup-usb.service 2>/dev/null || true
 		exit 1
 	}
 
 	btrbk run 2>&1 || {
 		error "btrbk run failed"
+		systemctl stop backup-usb.service 2>/dev/null || true
 		exit 1
 	}
 
